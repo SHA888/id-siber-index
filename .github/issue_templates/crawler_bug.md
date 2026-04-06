@@ -35,9 +35,9 @@ assignees: ["SHA888"]
 <!-- What actually happened -->
 
 **Steps to Reproduce:**
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 ## 🌐 Target Website Information
 

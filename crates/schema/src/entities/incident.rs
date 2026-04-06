@@ -1,5 +1,6 @@
 //! Incident entity definition
 
+use crate::enums::{AttackType, Sector, SourceType};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -9,17 +10,17 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: Uuid,
     pub org_name: String,
-    pub org_sector: String,
+    pub org_sector: Sector,
     pub incident_date: Date,
     pub disclosure_date: Date,
-    pub attack_type: String,
-    pub data_categories: Json, // Vec<String>
+    pub attack_type: AttackType,
+    pub data_categories: Json, // Vec<DataCategory>
     pub record_count_estimate: Option<i32>,
     pub financial_impact_idr: Option<i64>,
     pub actor_alias: Option<String>,
     pub actor_group: Option<String>,
     pub source_url: String,
-    pub source_type: String,
+    pub source_type: SourceType,
     pub verified: bool,
     pub notes: Option<String>,
     pub created_at: DateTimeWithTimeZone,

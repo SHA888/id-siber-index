@@ -4,6 +4,7 @@
 //! logic for incident records in the id-siber-index project.
 
 pub mod entities;
+pub mod enums;
 pub mod models;
 pub mod validation;
 
@@ -12,6 +13,7 @@ pub use validation::*;
 /// Re-export commonly used types
 pub mod prelude {
     pub use crate::entities::incident::*;
+    pub use crate::enums::*;
     pub use crate::models::incident::*;
     pub use crate::validation::IncidentValidator;
 }

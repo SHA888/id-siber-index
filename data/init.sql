@@ -23,11 +23,11 @@ CREATE TEXT SEARCH CONFIGURATION IF NOT EXISTS indonesian (COPY = english);
 CREATE TEXT SEARCH CONFIGURATION IF NOT EXISTS english_search (english);
 
 -- Create search functions
-CREATE OR REPLACE FUNCTION search_incidents(query_text TEXT) 
+CREATE OR REPLACE FUNCTION search_incidents(query_text TEXT)
 RETURNS TABLE(id UUID, title TEXT, description TEXT, severity incident_severity, status incident_status, category incident_category, created_at TIMESTAMP WITH TIME ZONE, updated_at TIMESTAMP WITH TIME ZONE, rank REAL) AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
+    SELECT
         i.id,
         i.title,
         i.description,
@@ -37,12 +37,12 @@ BEGIN
         i.created_at,
         i.updated_at,
         ts_rank(
-            setweight(to_tsvector('english', i.title), 'A') || 
+            setweight(to_tsvector('english', i.title), 'A') ||
             setweight(to_tsvector('english', i.description), 'B'),
             plainto_tsquery('english', query_text)
         ) as rank
     FROM incidents i
-    WHERE 
+    WHERE
         to_tsvector('english', i.title || ' ' || i.description) @@ plainto_tsquery('english', query_text)
     ORDER BY rank DESC;
 END;
@@ -56,13 +56,13 @@ ON CONFLICT DO NOTHING;
 
 -- Create views for common queries
 CREATE OR REPLACE VIEW incident_summary AS
-SELECT 
+SELECT
     status,
     category,
     severity,
     COUNT(*) as count,
     DATE(created_at) as date
-FROM incidents 
+FROM incidents
 GROUP BY status, category, severity, DATE(created_at)
 ORDER BY date DESC;
 
@@ -73,7 +73,7 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO id_siber;
 -- Create notification triggers (optional)
 CREATE OR REPLACE FUNCTION notify_incident_change() RETURNS TRIGGER AS $$
 BEGIN
-    PERFORM pg_notify('incident_change', 
+    PERFORM pg_notify('incident_change',
         json_build_object(
             'id', NEW.id,
             'action', TG_OP,

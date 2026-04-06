@@ -1,0 +1,261 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/SHA888/id-siber-index/schema/incident.json",
+  "title": "Indonesia Cybersecurity Incident",
+  "description": "Schema for a cybersecurity incident report in the Indonesia Cybersecurity Incident Index",
+  "type": "object",
+  "required": [
+    "id",
+    "org_name",
+    "org_sector",
+    "incident_date",
+    "disclosure_date",
+    "attack_type",
+    "data_categories",
+    "source_url",
+    "source_type",
+    "verified",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for the incident"
+    },
+    "org_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Name of the affected organization"
+    },
+    "org_sector": {
+      "type": "string",
+      "enum": [
+        "GOVERNMENT",
+        "MILITARY",
+        "LAW_ENFORCEMENT",
+        "HEALTHCARE",
+        "EDUCATION",
+        "PUBLIC_SERVICES",
+        "BANKING",
+        "INSURANCE",
+        "FINANCIAL_SERVICES",
+        "FINTECH",
+        "TECHNOLOGY",
+        "TELECOMMUNICATIONS",
+        "INTERNET_SERVICES",
+        "SOFTWARE",
+        "HARDWARE",
+        "ENERGY",
+        "TRANSPORTATION",
+        "WATER_UTILITIES",
+        "MANUFACTURING",
+        "AGRICULTURE",
+        "RETAIL",
+        "ECOMMERCE",
+        "MEDIA",
+        "ENTERTAINMENT",
+        "HOSPITALITY",
+        "CONSULTING",
+        "LEGAL",
+        "ACCOUNTING",
+        "REAL_ESTATE",
+        "NON_PROFIT",
+        "OTHER",
+        "UNKNOWN"
+      ],
+      "description": "Economic sector of the organization"
+    },
+    "incident_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date when the incident occurred (YYYY-MM-DD)"
+    },
+    "disclosure_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date when the incident was disclosed (YYYY-MM-DD)"
+    },
+    "attack_type": {
+      "type": "string",
+      "enum": [
+        "RANSOMWARE",
+        "MALWARE",
+        "SPYWARE",
+        "ADWARE",
+        "TROJAN",
+        "WORM",
+        "ROOTKIT",
+        "PHISHING",
+        "SPEAR_PHISHING",
+        "WHALING",
+        "SMISHING",
+        "VISHING",
+        "SOCIAL_ENGINEERING",
+        "DDOS",
+        "MAN_IN_THE_MIDDLE",
+        "SNIFFING",
+        "SPOOFING",
+        "HIJACKING",
+        "SQL_INJECTION",
+        "XSS",
+        "CSRF",
+        "PATH_TRAVERSAL",
+        "FILE_INCLUSION",
+        "COMMAND_INJECTION",
+        "DATA_BREACH",
+        "DATA_EXFILTRATION",
+        "DATA_LEAKAGE",
+        "PRIVILEGE_ESCALATION",
+        "REMOTE_CODE_EXECUTION",
+        "BUFFER_OVERFLOW",
+        "ZERO_DAY",
+        "INSIDER_THREAT",
+        "PHYSICAL_THEFT",
+        "SABOTAGE",
+        "UNKNOWN",
+        "OTHER"
+      ],
+      "description": "Type of cyber attack"
+    },
+    "data_categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "PERSONAL_DATA",
+          "CONTACT_INFORMATION",
+          "IDENTIFICATION",
+          "FINANCIAL_INFORMATION",
+          "HEALTH_INFORMATION",
+          "BUSINESS_DATA",
+          "INTELLECTUAL_PROPERTY",
+          "TRADE_SECRETS",
+          "FINANCIAL_DATA",
+          "CUSTOMER_DATA",
+          "EMPLOYEE_DATA",
+          "SYSTEM_DATA",
+          "CREDENTIALS",
+          "ACCESS_TOKENS",
+          "CONFIGURATION_DATA",
+          "OTHER",
+          "UNKNOWN"
+        ]
+      },
+      "minItems": 1,
+      "description": "Types of data affected by the incident"
+    },
+    "record_count_estimate": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647,
+      "description": "Estimated number of records affected"
+    },
+    "financial_impact_idr": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807,
+      "description": "Financial impact in Indonesian Rupiah"
+    },
+    "actor_alias": {
+      "type": ["string", "null"],
+      "maxLength": 255,
+      "description": "Alias of the threat actor"
+    },
+    "actor_group": {
+      "type": ["string", "null"],
+      "maxLength": 255,
+      "description": "Name of the threat actor group"
+    },
+    "source_url": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 2048,
+      "description": "URL of the source information"
+    },
+    "source_type": {
+      "type": "string",
+      "enum": [
+        "GOVERNMENT_REPORT",
+        "REGULATORY_FILING",
+        "PRESS_RELEASE",
+        "NEWS_ARTICLE",
+        "BLOG_POST",
+        "SOCIAL_MEDIA",
+        "SECURITY_REPORT",
+        "VENDOR_REPORT",
+        "RESEARCH_REPORT",
+        "COMPANY_STATEMENT",
+        "INVESTOR_REPORT",
+        "INTERNAL_REPORT",
+        "COMMUNITY_REPORT",
+        "USER_SUBMISSION",
+        "OTHER",
+        "UNKNOWN"
+      ],
+      "description": "Type of source"
+    },
+    "verified": {
+      "type": "boolean",
+      "description": "Whether the incident has been verified"
+    },
+    "notes": {
+      "type": ["string", "null"],
+      "maxLength": 10000,
+      "description": "Additional notes about the incident"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the record was created (ISO 8601 with timezone)"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the record was last updated (ISO 8601 with timezone)"
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "org_name": "PT Teknologi Indonesia",
+      "org_sector": "TECHNOLOGY",
+      "incident_date": "2024-01-15",
+      "disclosure_date": "2024-01-20",
+      "attack_type": "RANSOMWARE",
+      "data_categories": ["PERSONAL_DATA", "FINANCIAL_DATA"],
+      "record_count_estimate": 50000,
+      "financial_impact_idr": 1000000000,
+      "actor_alias": "Unknown",
+      "actor_group": "LockBit",
+      "source_url": "https://example.com/news/cyber-attack",
+      "source_type": "NEWS_ARTICLE",
+      "verified": true,
+      "notes": "Attack targeted customer database",
+      "created_at": "2024-01-21T10:00:00Z",
+      "updated_at": "2024-01-21T10:00:00Z"
+    },
+    {
+      "id": "660f9511-f39c-52e5-b827-557766551111",
+      "org_name": "Rumah Sakit Sehat",
+      "org_sector": "HEALTHCARE",
+      "incident_date": "2024-02-10",
+      "disclosure_date": "2024-02-15",
+      "attack_type": "DATA_BREACH",
+      "data_categories": ["HEALTH_INFORMATION", "PERSONAL_DATA"],
+      "record_count_estimate": 25000,
+      "financial_impact_idr": null,
+      "actor_alias": null,
+      "actor_group": null,
+      "source_url": "https://health-news.co.id/breach",
+      "source_type": "NEWS_ARTICLE",
+      "verified": false,
+      "notes": "Potential breach affecting patient records",
+      "created_at": "2024-02-16T14:30:00Z",
+      "updated_at": "2024-02-16T14:30:00Z"
+    }
+  ]
+}

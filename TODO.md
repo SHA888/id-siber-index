@@ -120,13 +120,13 @@ Patches do NOT change the schema, add new endpoints, or add new data sources. Th
 
 ### Schema
 
-- [ ] Define `Incident` struct in `crates/schema/src/incident.rs`
-- [ ] Define all enums: `Sector`, `AttackType`, `SourceType`, `DataCategory`
-- [ ] Write SQL migration for `incidents` table
-- [ ] Write SQL migration for `sources` table (audit trail per record)
-- [ ] Add `pg_trgm` extension migration for full-text search
-- [ ] Document schema in `schema/README.md` with field definitions and enum values
-- [ ] Write `schema/incident.json` (JSON Schema for external consumers)
+- [x] Define `Incident` struct in `crates/schema/src/incident.rs`
+- [x] Define all enums: `Sector`, `AttackType`, `SourceType`, `DataCategory`
+- [x] Write SQL migration for `incidents` table
+- [x] Write SQL migration for `sources` table (audit trail per record)
+- [x] Add `pg_trgm` extension migration for full-text search
+- [x] Document schema in `schema/README.md` with field definitions and enum values
+- [x] Write `schema/incident.json` (JSON Schema for external consumers)
 
 ### IDX Crawler
 

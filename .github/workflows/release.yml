@@ -26,17 +26,17 @@ jobs:
       run: |
         # Get the previous tag
         PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-        
+
         # Generate changelog
         if [ -n "$PREVIOUS_TAG" ]; then
           CHANGELOG=$(git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..HEAD)
         else
           CHANGELOG=$(git log --pretty=format:"- %s (%h)")
         fi
-        
+
         # Save to file
         echo "$CHANGELOG" > CHANGELOG.md
-        
+
         # Set output
         echo "changelog<<EOF" >> $GITHUB_OUTPUT
         echo "$CHANGELOG" >> $GITHUB_OUTPUT
@@ -52,17 +52,17 @@ jobs:
         release_name: Release ${{ github.ref_name }}
         body: |
           ## Changes in ${{ github.ref_name }}
-          
+
           ${{ steps.changelog.outputs.changelog }}
-          
+
           ---
-          
+
           ### Docker Images
           - `ghcr.io/${{ github.repository }}:latest`
           - `ghcr.io/${{ github.repository }}:${{ github.ref_name }}`
-          
+
           ### Installation
-          
+
           #### Docker Compose
           ```bash
           curl -O https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
@@ -71,7 +71,7 @@ jobs:
           # Edit .env with your configuration
           docker compose up -d
           ```
-          
+
           #### From Source
           ```bash
           git clone https://github.com/${{ github.repository }}.git
