@@ -56,7 +56,7 @@ cython_debug/
 # uv (Python package manager)
 .uv/
 .venv/
-uv.lock
+# uv.lock - commit this for reproducible builds
 
 # ruff cache
 .ruff_cache/
