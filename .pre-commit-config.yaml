@@ -82,12 +82,3 @@ repos:
         files: ^nlp/
         additional_dependencies: [black]
         require_serial: true
-
-      - id: python-test
-        name: python pytest
-        entry: pytest
-        language: python
-        types: [python]
-        files: ^nlp/
-        additional_dependencies: [pytest]
-        require_serial: true

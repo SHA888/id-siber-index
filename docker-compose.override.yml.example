@@ -1,0 +1,87 @@
+# Development overrides for docker-compose.yml
+# Copy this file to docker-compose.override.yml and customize for local development
+
+services:
+  postgres:
+    ports:
+      - "15432:5432"  # Use unique port to avoid conflict
+    environment:
+      POSTGRES_PASSWORD: dev_password  # Simple password for development
+    volumes:
+      - ./data/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./data/postgres:/var/lib/postgresql/data  # Local volume for persistence
+
+  meilisearch:
+    ports:
+      - "7700:7700"  # Standard Meilisearch port
+    environment:
+      MEILI_MASTER_KEY: dev_master_key  # Simple key for development
+    volumes:
+      - ./data/meilisearch:/meili_data  # Local volume for persistence
+
+  redis:
+    ports:
+      - "6379:6379"  # Standard Redis port
+    environment:
+      REDIS_PASSWORD: dev_redis_password  # Simple password for development
+    volumes:
+      - ./data/redis:/data  # Local volume for persistence
+
+  api:
+    build:
+      target: development  # Use development target if available
+    environment:
+      RUST_LOG: debug  # Verbose logging for development
+      API_HOST: 127.0.0.1  # Only allow localhost in development
+    volumes:
+      - .:/app  # Mount source code for hot reloading
+      - cargo_cache:/usr/local/cargo/registry  # Cache cargo dependencies
+    ports:
+      - "8080:8080"  # API port
+    # Enable debugger in development
+    # command: ["cargo", "run", "--bin", "api"]
+
+  nlp:
+    environment:
+      PYTHONPATH: /app
+      FLASK_ENV: development  # If using Flask
+      DEBUG: true  # Enable debug mode
+    volumes:
+      - ./nlp:/app  # Mount source code for hot reloading
+    ports:
+      - "8081:8081"  # NLP service port
+
+# Additional development services
+services:
+  # Adminer for database management
+  adminer:
+    image: adminer:latest
+    container_name: id-siber-adminer
+    restart: unless-stopped
+    ports:
+      - "8090:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    networks:
+      - id-siber-network
+    depends_on:
+      - postgres
+
+  # Meilisearch web interface
+  meilisearch-ui:
+    image: capricorn98/happymeilisearch:latest
+    container_name: id-siber-meilisearch-ui
+    restart: unless-stopped
+    ports:
+      - "8091:80"
+    environment:
+      MEILI_ADDR: http://meilisearch:7700
+      MEILI_API_KEY: ${MEILI_MASTER_KEY:-dev_master_key}
+    networks:
+      - id-siber-network
+    depends_on:
+      - meilisearch
+
+volumes:
+  cargo_cache:
+    driver: local

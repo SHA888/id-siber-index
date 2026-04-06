@@ -137,7 +137,7 @@ nlp/
 
 Primary focus on Indonesian and English, with additional support for:
 - Malay (ms)
-- Chinese (zh) 
+- Chinese (zh)
 - Japanese (ja)
 - Korean (ko)
 - Thai (th)

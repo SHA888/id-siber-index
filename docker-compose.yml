@@ -1,0 +1,142 @@
+services:
+  # PostgreSQL 16 Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: id-siber-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: id_siber_index
+      POSTGRES_USER: id_siber
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-id_siber_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./data/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "${POSTGRES_PORT:-15432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U id_siber -d id_siber_index"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - id-siber-network
+
+  # Meilisearch Search Engine
+  meilisearch:
+    image: getmeili/meilisearch:v1.9
+    container_name: id-siber-meilisearch
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-id_siber_master_key}
+      MEILI_ENV: ${MEILI_ENV:-development}
+    volumes:
+      - meilisearch_data:/meili_data
+    ports:
+      - "${MEILISEARCH_PORT:-7700}:7700"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - id-siber-network
+
+  # Redis Cache (for API rate limiting and sessions)
+  redis:
+    image: redis:7-alpine
+    container_name: id-siber-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_password}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    networks:
+      - id-siber-network
+
+  # API Service (placeholder for now)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    container_name: id-siber-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://id_siber:${POSTGRES_PASSWORD:-id_siber_password}@postgres:5432/id_siber_index
+      MEILISEARCH_URL: http://meilisearch:7700
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-id_siber_master_key}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379
+      RUST_LOG: ${RUST_LOG:-info}
+      API_HOST: ${API_HOST:-0.0.0.0}
+      API_PORT: ${API_PORT:-8080}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - id-siber-network
+
+  # NLP Service (placeholder for future ML processing)
+  nlp:
+    build:
+      context: ./nlp
+      dockerfile: Dockerfile
+    container_name: id-siber-nlp
+    restart: unless-stopped
+    environment:
+      PYTHONPATH: /app
+      NLTK_DATA: /app/nltk_data
+      TRANSFORMERS_CACHE: /app/transformers_cache
+    volumes:
+      - nltk_data:/app/nltk_data
+      - transformers_cache:/app/transformers_cache
+    ports:
+      - "${NLP_PORT:-8081}:8081"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - id-siber-network
+
+volumes:
+  postgres_data:
+    driver: local
+  meilisearch_data:
+    driver: local
+  redis_data:
+    driver: local
+  nltk_data:
+    driver: local
+  transformers_cache:
+    driver: local
+
+networks:
+  id-siber-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

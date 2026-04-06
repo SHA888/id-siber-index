@@ -2,7 +2,6 @@
 Language detection utilities for multilingual incident analysis.
 """
 
-
 from iso639 import Lang
 from langdetect import LangDetectException, detect
 

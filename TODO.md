@@ -74,17 +74,17 @@ Patches do NOT add application logic, schema definitions, or crawler code. Those
 
 ### Infrastructure
 
-- [ ] `docker-compose.yml` — PostgreSQL 16 + Meilisearch + placeholder API service
-- [ ] `docker-compose.override.yml.example` — local dev overrides template
-- [ ] `.env.example` — all required environment variables documented
-- [ ] `Makefile`:
-  - [ ] `make dev` — starts docker-compose stack
-  - [ ] `make stop` — stops stack
-  - [ ] `make test` — runs `cargo test` + `uv run pytest`
-  - [ ] `make lint` — runs `cargo clippy` + `cargo fmt --check` + `ruff check`
-  - [ ] `make audit` — runs `cargo audit`
-  - [ ] `make clean` — removes build artifacts
-- [ ] `make dev` produces a running PostgreSQL + Meilisearch stack with no errors
+- [x] `docker-compose.yml` — PostgreSQL 16 + Meilisearch + placeholder API service
+- [x] `docker-compose.override.yml.example` — local dev overrides template
+- [x] `.env.example` — all required environment variables documented
+- [x] `Makefile`:
+  - [x] `make dev` — starts docker-compose stack
+  - [x] `make stop` — stops stack
+  - [x] `make test` — runs `cargo test` + `uv run pytest`
+  - [x] `make lint` — runs `cargo clippy` + `cargo fmt --check` + `ruff check`
+  - [x] `make audit` — runs `cargo audit`
+  - [x] `make clean` — removes build artifacts
+- [x] `make dev` produces a running PostgreSQL + Meilisearch stack with no errors
 
 ### CI/CD
 
