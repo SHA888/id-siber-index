@@ -88,44 +88,28 @@ Patches do NOT add application logic, schema definitions, or crawler code. Those
 
 ### CI/CD
 
-- [ ] `.github/workflows/ci.yml`:
-  - [ ] Triggers: push to `main`, all PRs
-  - [ ] Jobs: `cargo clippy`, `cargo fmt --check`, `cargo test`, `cargo audit`
-  - [ ] Python jobs: `ruff check`, `ruff format --check`, `uv run pytest`
-  - [ ] All jobs must pass before merge
-- [ ] `.github/workflows/release.yml`:
-  - [ ] Triggers: push of `v*` tag
-  - [ ] Creates GitHub Release with changelog entry
-- [ ] `.github/CODEOWNERS` — assign maintainer to all paths
-- [ ] `.github/issue_templates/`:
-  - [ ] `incident_report.md`
-  - [ ] `crawler_bug.md`
-  - [ ] `schema_proposal.md`
-  - [ ] `bug_report.md`
-- [ ] `.github/pull_request_template.md`
+- [x] `.github/workflows/ci.yml`:
+  - [x] Triggers: push to `main`, all PRs
+  - [x] Jobs: `cargo clippy`, `cargo fmt --check`, `cargo test`, `cargo audit`
+  - [x] Python jobs: `ruff check`, `ruff format --check`, `uv run pytest`
+  - [x] All jobs must pass before merge
+- [x] `.github/workflows/release.yml`:
+  - [x] Triggers: push of `v*` tag
+  - [x] Creates GitHub Release with changelog entry
+- [x] `.github/CODEOWNERS` — assign maintainer to all paths
+- [x] `.github/issue_templates/`:
+  - [x] `incident_report.md`
+  - [x] `crawler_bug.md`
+  - [x] `schema_proposal.md`
+  - [x] `bug_report.md`
+- [x] `.github/pull_request_template.md`
 - [ ] GitHub branch protection on `main`: CI must pass, no direct push
 - [ ] GitHub Discussions enabled
 
-### OSS Hygiene
+### Versioning Policy
 
-- [ ] Dependency license audit: all Rust + Python deps are OSS-compatible with AGPL-3.0
-- [ ] `NOTICE` file if any dependencies require attribution
-- [ ] No secrets, credentials, or `.env` files in git history (verify with `git log`)
-- [ ] `cargo deny check` — license, advisories, and duplicate dependency check
-- [ ] Repository topics set on GitHub: `cybersecurity`, `indonesia`, `threat-intelligence`, `open-data`, `rust`
-- [ ] Repository description set: "Open index of cybersecurity incidents affecting Indonesian organizations"
-
----
-
-## v0.1.0 — Public Corpus MVP
-**Target: 4 weeks from first commit**
-**Goal: Working public repository with ~200 verified incidents, free API, open source launch**
-**Release condition: All tasks complete, 200+ verified records in production, API publicly accessible**
-
-### v0.1.x — Patch Policy
-Patches in the `0.1.x` range require no planning. Cut a patch when:
-- A crawler parser breaks due to upstream source HTML change
-- A normalization bug produces incorrect field values on existing records
+#### 0.1.x — Patches
+- Correct field values on existing records
 - A security fix is needed in the API server
 - New incident records are backfilled (data additions are patches, not features)
 - Documentation corrections
@@ -171,7 +155,8 @@ Patches do NOT change the schema, add new endpoints, or add new data sources. Th
 - [ ] Link to relevant IDX disclosures where org is the same
 - [ ] Unit tests for parser
 
-### Media Crawler
+###
+ Media Crawler
 
 - [ ] Tempo (`tempo.co/tag/keamanan-siber`)
 - [ ] Kompas Tech (`tekno.kompas.com`)
@@ -199,7 +184,8 @@ Patches do NOT change the schema, add new endpoints, or add new data sources. Th
 
 ### API Server (Axum)
 
-- [ ] `GET /v1/incidents` — list with filters (sector, attack_type, from, until)
+- [ ] `GET /v1/incidents` — list with filters (sector, AZt+c+_
+type, from, until)
 - [ ] `GET /v1/incidents/{id}` — single record
 - [ ] `GET /v1/incidents/recent` — last 30 days
 - [ ] `GET /v1/stats` — aggregate counts by sector, attack type, year

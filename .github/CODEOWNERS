@@ -1,0 +1,41 @@
+# Default maintainers for the entire repository
+* @SHA888
+
+# Specific maintainers for different areas
+
+# Rust code and core infrastructure
+crates/ @SHA888
+*.rs @SHA888
+Cargo.toml @SHA888
+Cargo.lock @SHA888
+
+# Python NLP components
+nlp/ @SHA888
+*.py @SHA888
+pyproject.toml @SHA888
+requirements*.txt @SHA888
+
+# Docker and infrastructure
+Dockerfile* @SHA888
+docker-compose*.yml @SHA888
+Makefile @SHA888
+.env.example @SHA888
+
+# Documentation
+docs/ @SHA888
+*.md @SHA888
+
+# CI/CD and GitHub configuration
+.github/ @SHA888
+.pre-commit-config.yaml @SHA888
+.gitignore @SHA888
+
+# Data and schemas
+data/ @SHA888
+schemas/ @SHA888
+*.sql @SHA888
+*.json @SHA888
+
+# Scripts and utilities
+scripts/ @SHA888
+*.sh @SHA888
