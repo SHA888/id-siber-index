@@ -1,0 +1,27 @@
+[package]
+name = "migrate"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Database migration tool for id-siber-index"
+
+[[bin]]
+name = "migrate"
+path = "src/main.rs"
+
+[dependencies]
+schema = { path = "../schema" }
+tokio = { workspace = true }
+sea-orm = { workspace = true }
+sea-orm-migration = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+config = { workspace = true }
+dotenvy = { workspace = true }
+clap = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"

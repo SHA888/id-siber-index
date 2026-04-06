@@ -2,7 +2,7 @@
 
 **Indonesia Cybersecurity Incident Index** — a structured, open, continuously updated public record of cybersecurity incidents affecting Indonesian organizations.
 
-> **⚠️ PRE-RELEASE WARNING**  
+> **⚠️ PRE-RELEASE WARNING**
 > This repository is in active development (`v0.0.1`). The schema, API structure, and data formats are unstable and will change before the `v0.1.0` release. Do not use this in production yet.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](LICENSE)
@@ -183,7 +183,7 @@ We do not accept contributions that include actual stolen data, non-public infor
 
 **Dark web data:** For sources derived from dark web monitoring, we index only the fact of an incident and its organizational metadata — not the leaked data itself. Our handling follows the approach established by Have I Been Pwned.
 
-**Responsible disclosure:** If you discover a security vulnerability in this project, email 
+**Responsible disclosure:** If you discover a security vulnerability in this project, email
 <!-- security@idsiberindex.id --> before public disclosure.
 
 ---

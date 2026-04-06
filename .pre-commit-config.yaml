@@ -1,0 +1,57 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: debug-statements
+
+  - repo: local
+    hooks:
+      - id: rust-fmt
+        name: rust fmt
+        entry: cargo fmt --
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: rust-clippy
+        name: rust clippy
+        entry: cargo clippy -- -D warnings
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: cargo-check
+        name: cargo check
+        entry: cargo check
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: cargo-test
+        name: cargo test
+        entry: cargo test
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: cargo-audit
+        name: cargo audit
+        entry: cargo audit
+        language: system
+        types: [rust]
+        pass_filenames: false
+        files: Cargo\.lock$
+
+      - id: cargo-deny
+        name: cargo deny
+        entry: cargo deny check
+        language: system
+        types: [rust]
+        pass_filenames: false
+        files: deny\.toml|Cargo\.lock$

@@ -1,0 +1,30 @@
+[package]
+name = "cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Command-line interface for id-siber-index"
+
+[[bin]]
+name = "idsiber"
+path = "src/main.rs"
+
+[dependencies]
+schema = { path = "../schema" }
+crawler = { path = "../crawler" }
+api = { path = "../api" }
+tokio = { workspace = true }
+clap = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+config = { workspace = true }
+dotenvy = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sea-orm = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"

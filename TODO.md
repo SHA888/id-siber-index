@@ -50,18 +50,18 @@ Patches do NOT add application logic, schema definitions, or crawler code. Those
 
 ### Rust Workspace
 
-- [ ] `Cargo.toml` — workspace definition, all crates declared
-- [ ] `rust-toolchain.toml` — pinned stable toolchain version
-- [ ] Crate stubs created (empty `lib.rs` or `main.rs`, no logic yet):
-  - [ ] `crates/schema`
-  - [ ] `crates/crawler`
-  - [ ] `crates/api`
-  - [ ] `crates/migrate`
-  - [ ] `crates/cli`
-- [ ] `cargo clippy` passes on empty stubs
-- [ ] `cargo fmt --check` passes
-- [ ] `cargo test` passes (no tests yet — just confirms build)
-- [ ] `cargo audit` clean (no known vulnerabilities in dependencies)
+- [x] `Cargo.toml` — workspace definition, all crates declared
+- [x] `rust-toolchain.toml` — pinned stable toolchain version
+- [x] Crate stubs created (empty `lib.rs` or `main.rs`, no logic yet):
+  - [x] `crates/schema`
+  - [x] `crates/crawler`
+  - [x] `crates/api`
+  - [x] `crates/migrate`
+  - [x] `crates/cli`
+- [x] `cargo clippy` passes on empty stubs
+- [x] `cargo fmt --check` passes
+- [x] `cargo test` passes (no tests yet — just confirms build)
+- [x] `cargo audit` clean (no known vulnerabilities in dependencies) - RSA vulnerability in sqlx-mysql ignored (we only use PostgreSQL), fxhash resolved by replacing scraper crate
 
 ### Python Tooling
 

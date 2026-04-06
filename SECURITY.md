@@ -194,7 +194,7 @@ We thank the security community for helping make this project more secure:
 
 This security policy is provided for informational purposes. We reserve the right to modify it at any time without notice. The specific response to any security issue will depend on its nature and impact.
 
-For legal questions regarding security incidents, contact us at 
+For legal questions regarding security incidents, contact us at
 <!-- legal@idsiberindex.id -->
 
 ---
