@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "crates/schema",
-    "crates/crawler", 
+    "crates/crawler",
     "crates/api",
     "crates/migrate",
     "crates/cli",

@@ -65,12 +65,12 @@ Patches do NOT add application logic, schema definitions, or crawler code. Those
 
 ### Python Tooling
 
-- [ ] `nlp/pyproject.toml` — `uv` managed project
-- [ ] `nlp/.python-version` — pinned Python version
-- [ ] Empty package structure: `nlp/enrichment/__init__.py`
-- [ ] `uv sync` produces clean environment
-- [ ] `ruff check` passes on empty stubs
-- [ ] `ruff format --check` passes
+- [x] `nlp/pyproject.toml` — `uv` managed project
+- [x] `nlp/.python-version` — pinned Python version
+- [x] Empty package structure: `nlp/enrichment/__init__.py`
+- [x] `uv sync` produces clean environment
+- [x] `ruff check` passes on empty stubs
+- [x] `ruff format --check` passes
 
 ### Infrastructure
 

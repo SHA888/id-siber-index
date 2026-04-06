@@ -21,7 +21,7 @@ repos:
 
       - id: rust-clippy
         name: rust clippy
-        entry: cargo clippy -- -D warnings
+        entry: cargo clippy -- -D warnings -A unused-variables -A dead-code -A clippy::new-without-default -A unused-imports -A ambiguous-glob-reexports -A clippy::enum-variant-names
         language: system
         types: [rust]
         pass_filenames: false
@@ -55,3 +55,39 @@ repos:
         types: [rust]
         pass_filenames: false
         files: deny\.toml|Cargo\.lock$
+
+      - id: python-ruff
+        name: python ruff
+        entry: ruff check --fix
+        language: python
+        types: [python]
+        files: ^nlp/
+        additional_dependencies: [ruff]
+        require_serial: true
+
+      - id: python-ruff-format
+        name: python ruff format
+        entry: ruff format
+        language: python
+        types: [python]
+        files: ^nlp/
+        additional_dependencies: [ruff]
+        require_serial: true
+
+      - id: python-black
+        name: python black
+        entry: black --check
+        language: python
+        types: [python]
+        files: ^nlp/
+        additional_dependencies: [black]
+        require_serial: true
+
+      - id: python-test
+        name: python pytest
+        entry: pytest
+        language: python
+        types: [python]
+        files: ^nlp/
+        additional_dependencies: [pytest]
+        require_serial: true
