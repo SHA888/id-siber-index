@@ -3,7 +3,6 @@
 use governor::{Quota, RateLimiter as GovernorRateLimiter};
 use std::num::NonZeroU32;
 use std::sync::Arc;
-use std::time::Duration;
 
 /// Rate limiter for crawler requests
 pub struct RateLimiter {

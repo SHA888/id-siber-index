@@ -1,11 +1,11 @@
 //! CORS middleware
 
-use axum::extract::Request;
-use axum::middleware::Next;
-use axum::response::Response;
-use tower_http::cors::CorsLayer;
+use axum::http::{Method, header};
+use tower_http::cors::{Any, CorsLayer};
 
 pub fn cors_layer() -> CorsLayer {
-    // TODO: Configure CORS properly
-    CorsLayer::permissive()
+    CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
 }

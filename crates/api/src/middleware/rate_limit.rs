@@ -21,7 +21,7 @@ impl RateLimiter {
 }
 
 pub async fn rate_limit_middleware(
-    rate_limiter: Arc<RateLimiter>,
+    _rate_limiter: Arc<RateLimiter>,
     request: Request,
     next: Next,
 ) -> Result<Response, axum::http::StatusCode> {

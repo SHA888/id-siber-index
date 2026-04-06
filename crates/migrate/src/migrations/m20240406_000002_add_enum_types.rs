@@ -84,22 +84,6 @@ impl MigrationTrait for Migration {
 enum Incident {
     Table,
     Id,
-    OrgName,
-    OrgSector,
-    IncidentDate,
-    DisclosureDate,
-    AttackType,
-    DataCategories,
-    RecordCountEstimate,
-    FinancialImpactIdr,
-    ActorAlias,
-    ActorGroup,
-    SourceUrl,
-    SourceType,
-    Verified,
-    Notes,
-    CreatedAt,
-    UpdatedAt,
 }
 
 #[derive(DeriveIden)]

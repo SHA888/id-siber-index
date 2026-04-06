@@ -18,7 +18,7 @@ impl Default for HtmlExtractor {
 }
 
 impl DataExtractor for HtmlExtractor {
-    fn extract(&self, content: &str, url: &str) -> Result<Vec<ExtractionResult>> {
+    fn extract(&self, _content: &str, _url: &str) -> Result<Vec<ExtractionResult>> {
         // TODO: Implement HTML extraction using html5ever and readability
         // For now, return empty result
         Ok(vec![])

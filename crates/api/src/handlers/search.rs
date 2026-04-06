@@ -8,7 +8,7 @@ use schema::models::incident::IncidentSearchParams;
 
 /// Search incidents
 pub async fn search_incidents(
-    Query(params): Query<IncidentSearchParams>,
+    Query(_params): Query<IncidentSearchParams>,
 ) -> Result<Json<Vec<schema::models::incident::Incident>>, ApiError> {
     // TODO: Implement incident search
     Ok(Json(vec![]))
