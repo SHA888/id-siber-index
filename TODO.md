@@ -130,15 +130,15 @@ Patches do NOT change the schema, add new endpoints, or add new data sources. Th
 
 ### IDX Crawler
 
-- [ ] Parse IDX electronic disclosure feed (`eidnews.idx.co.id`)
-- [ ] Keyword filter: Bahasa + English cyber incident terms
-  - [ ] `serangan siber`, `kebocoran data`, `ransomware`, `gangguan sistem`
-  - [ ] `cyber attack`, `data breach`, `system disruption`, `unauthorized access`
-- [ ] Extract: org name, disclosure date, incident description, URL
-- [ ] Normalize to `IncidentDraft` struct
-- [ ] Historical backfill: 2020–present
-- [ ] Deduplication: same org + same date window → single record
-- [ ] Unit tests for parser
+- [x] Parse IDX electronic disclosure feed (`eidnews.idx.co.id`)
+- [x] Keyword filter: Bahasa + English cyber incident terms
+  - [x] `serangan siber`, `kebocoran data`, `ransomware`, `gangguan sistem`
+  - [x] `cyber attack`, `data breach`, `system disruption`, `unauthorized access`
+- [x] Extract: org name, disclosure date, incident description, URL
+- [x] Normalize to `IncidentDraft` struct
+- [x] Historical backfill: 2020–present
+- [x] Deduplication: same org + same date window → single record
+- [x] Unit tests for parser
 
 ### BSSN Crawler
 
