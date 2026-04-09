@@ -142,11 +142,11 @@ Patches do NOT change the schema, add new endpoints, or add new data sources. Th
 
 ### BSSN Crawler
 
-- [ ] Parse BSSN press releases (`bssn.go.id/siaran-pers`)
-- [ ] Parse BSSN annual threat landscape reports (PDF extraction)
-- [ ] Extract: org name if named, incident date, attack type, sector
-- [ ] Handle BSSN's pattern of aggregate statistics vs named incidents
-- [ ] Unit tests for parser
+- [x] Parse BSSN press releases (`bssn.go.id/siaran-pers`)
+- [x] Parse BSSN annual threat landscape reports (PDF extraction)
+- [x] Extract: org name if named, incident date, attack type, sector
+- [x] Handle BSSN's pattern of aggregate statistics vs named incidents
+- [x] Unit tests for parser
 
 ### OJK Crawler
 

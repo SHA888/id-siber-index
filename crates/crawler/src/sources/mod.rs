@@ -1,6 +1,7 @@
 //! Crawler source implementations
 
 pub mod bssn;
+pub mod bssn_tests;
 pub mod idx;
 pub mod media;
 pub mod ojk;
