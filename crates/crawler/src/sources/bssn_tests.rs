@@ -1,8 +1,8 @@
 //! Unit tests for BSSN crawler
 
-use crate::sources::bssn::{BssnCrawler, BssnKeywordMatcher};
-use crate::sources::CrawlerSource;
 use crate::incident_draft::IncidentDraft;
+use crate::sources::CrawlerSource;
+use crate::sources::bssn::{BssnCrawler, BssnKeywordMatcher};
 use chrono::NaiveDate;
 
 #[cfg(test)]
@@ -12,14 +12,14 @@ mod tests {
     #[test]
     fn test_bssn_keyword_matcher_bahasa() {
         let matcher = BssnKeywordMatcher::new();
-        
+
         // Test Bahasa keywords
         assert!(matcher.contains_cyber_keywords("Serangan siber terhadap sistem perbankan"));
         assert!(matcher.contains_cyber_keywords("Terjadi kebocoran data nasabah"));
         assert!(matcher.contains_cyber_keywords("Sistem terkena ransomware"));
         assert!(matcher.contains_cyber_keywords("Gangguan sistem informasi"));
         assert!(matcher.contains_cyber_keywords("Insiden keamanan siber"));
-        
+
         // Test non-cyber content
         assert!(!matcher.contains_cyber_keywords("Laporan kegiatan tahunan"));
         assert!(!matcher.contains_cyber_keywords("Rapat koordinasi nasional"));
@@ -28,13 +28,13 @@ mod tests {
     #[test]
     fn test_bssn_keyword_matcher_english() {
         let matcher = BssnKeywordMatcher::new();
-        
+
         // Test English keywords
         assert!(matcher.contains_cyber_keywords("Cyber attack against banking system"));
         assert!(matcher.contains_cyber_keywords("Data breach affecting customers"));
         assert!(matcher.contains_cyber_keywords("System disruption due to malware"));
         assert!(matcher.contains_cyber_keywords("Unauthorized access detected"));
-        
+
         // Test non-cyber content
         assert!(!matcher.contains_cyber_keywords("Annual activity report"));
         assert!(!matcher.contains_cyber_keywords("National coordination meeting"));
@@ -43,7 +43,7 @@ mod tests {
     #[test]
     fn test_attack_type_extraction() {
         let matcher = BssnKeywordMatcher::new();
-        
+
         // Test Bahasa attack types
         assert_eq!(
             matcher.extract_attack_type("Sistem terkena ransomware"),
@@ -57,7 +57,7 @@ mod tests {
             matcher.extract_attack_type("Serangan siber terdeteksi"),
             Some("CYBER_ATTACK".to_string())
         );
-        
+
         // Test English attack types
         assert_eq!(
             matcher.extract_attack_type("System infected with malware"),
@@ -71,13 +71,13 @@ mod tests {
             matcher.extract_attack_type("DDOS attack blocked"),
             Some("DDOS".to_string())
         );
-        
+
         // Test unknown attack type
         assert_eq!(
             matcher.extract_attack_type("Security incident occurred"),
             Some("UNKNOWN".to_string())
         );
-        
+
         // Test no attack type
         assert_eq!(
             matcher.extract_attack_type("Regular business operation"),
@@ -88,7 +88,7 @@ mod tests {
     #[test]
     fn test_sector_extraction() {
         let matcher = BssnKeywordMatcher::new();
-        
+
         // Test financial sector
         assert_eq!(
             matcher.extract_sector("Insiden di sektor perbankan"),
@@ -98,7 +98,7 @@ mod tests {
             matcher.extract_sector("Bank terkena serangan"),
             Some("FINANCIAL".to_string())
         );
-        
+
         // Test healthcare sector
         assert_eq!(
             matcher.extract_sector("Rumah sakit mengalami gangguan"),
@@ -108,37 +108,37 @@ mod tests {
             matcher.extract_sector("Klinik data bocor"),
             Some("HEALTHCARE".to_string())
         );
-        
+
         // Test government sector
         assert_eq!(
             matcher.extract_sector("Instansi pemerintahan diretas"),
             Some("GOVERNMENT".to_string())
         );
-        
+
         // Test education sector
         assert_eq!(
             matcher.extract_sector("Universitas terkena malware"),
             Some("EDUCATION".to_string())
         );
-        
+
         // Test telecommunications sector
         assert_eq!(
             matcher.extract_sector("Telkom gangguan sistem"),
             Some("TELECOMMUNICATIONS".to_string())
         );
-        
+
         // Test e-commerce sector
         assert_eq!(
             matcher.extract_sector("Tokopedia data breach"),
             Some("E-COMMERCE".to_string())
         );
-        
+
         // Test energy sector
         assert_eq!(
             matcher.extract_sector("PLN sistem terganggu"),
             Some("ENERGY".to_string())
         );
-        
+
         // Test no sector
         assert_eq!(
             matcher.extract_sector("Generic organization incident"),
@@ -161,7 +161,8 @@ mod tests {
         let crawler = BssnCrawler::new().unwrap();
 
         // Test PT company names
-        let org_name = crawler.extract_org_name("PT Bank Central Asia Tbk mengalami serangan siber");
+        let org_name =
+            crawler.extract_org_name("PT Bank Central Asia Tbk mengalami serangan siber");
         assert_eq!(org_name, Some("PT Bank Central Asia Tbk".to_string()));
 
         // Test CV company names
@@ -180,23 +181,23 @@ mod tests {
     #[test]
     fn test_date_extraction() {
         let crawler = BssnCrawler::new().unwrap();
-        
+
         // Test Indonesian date format
         let date = crawler.extract_date("15 April 2024");
         assert_eq!(date, NaiveDate::from_ymd_opt(2024, 4, 15).unwrap());
-        
+
         // Test ISO date format
         let date = crawler.extract_date("2024-04-15");
         assert_eq!(date, NaiveDate::from_ymd_opt(2024, 4, 15).unwrap());
-        
+
         // Test Indonesian month names
         let date = crawler.extract_date("15 Januari 2024");
         assert_eq!(date, NaiveDate::from_ymd_opt(2024, 1, 15).unwrap());
-        
+
         // Test date in text
         let date = crawler.extract_date("Insiden terjadi pada 25 Desember 2023");
         assert_eq!(date, NaiveDate::from_ymd_opt(2023, 12, 25).unwrap());
-        
+
         // Test fallback (should return current date)
         let date = crawler.extract_date("no date here");
         assert!(date <= chrono::Utc::now().date_naive());
@@ -263,7 +264,7 @@ mod tests {
         // Test duplicate detection (7-day window)
         assert!(draft1.is_potential_duplicate(&draft2, 7)); // Same org, 3 days apart
         assert!(!draft1.is_potential_duplicate(&draft3, 7)); // Different org
-        
+
         // Test with smaller window
         assert!(!draft1.is_potential_duplicate(&draft2, 2)); // Same org, but 3 days apart > 2-day window
     }
@@ -281,7 +282,7 @@ mod tests {
         "#;
 
         let crawler = BssnCrawler::new().unwrap();
-        
+
         // Test that we can parse HTML without crashing
         let items = crawler.parse_press_releases(html);
         assert!(items.is_ok());
@@ -303,8 +304,16 @@ mod tests {
         let pdf_links = crawler.extract_pdf_links(html);
 
         assert_eq!(pdf_links.len(), 2);
-        assert!(pdf_links.iter().any(|link: &String| link.contains("threat-landscape-2023.pdf")));
-        assert!(pdf_links.iter().any(|link: &String| link.contains("annual-report.pdf")));
+        assert!(
+            pdf_links
+                .iter()
+                .any(|link: &String| link.contains("threat-landscape-2023.pdf"))
+        );
+        assert!(
+            pdf_links
+                .iter()
+                .any(|link: &String| link.contains("annual-report.pdf"))
+        );
     }
 
     #[tokio::test]
@@ -330,7 +339,7 @@ mod tests {
         .with_confidence(0.8);
 
         let extraction_result = draft.to_extraction_result();
-        
+
         assert_eq!(extraction_result.org_name, "PT Test Company");
         assert_eq!(extraction_result.org_sector, "FINANCIAL");
         assert_eq!(extraction_result.attack_type, "RANSOMWARE");
@@ -357,7 +366,7 @@ mod tests {
     #[test]
     fn test_sector_keyword_coverage() {
         let matcher = BssnKeywordMatcher::new();
-        
+
         // Test all major sectors are covered
         assert!(matcher.extract_sector("perbankan").is_some());
         assert!(matcher.extract_sector("kesehatan").is_some());

@@ -118,7 +118,10 @@ impl BssnKeywordMatcher {
         attack_type_mapping.insert("serangan siber".to_lowercase(), "CYBER_ATTACK".to_string());
         attack_type_mapping.insert("kebocoran data".to_lowercase(), "DATA_BREACH".to_string());
         attack_type_mapping.insert("pencurian data".to_lowercase(), "DATA_THEFT".to_string());
-        attack_type_mapping.insert("akun diretas".to_lowercase(), "ACCOUNT_COMPROMISE".to_string());
+        attack_type_mapping.insert(
+            "akun diretas".to_lowercase(),
+            "ACCOUNT_COMPROMISE".to_string(),
+        );
 
         // English mappings
         attack_type_mapping.insert("cyber attack".to_lowercase(), "CYBER_ATTACK".to_string());
@@ -149,7 +152,10 @@ impl BssnKeywordMatcher {
         sector_keywords.insert("pendidikan".to_lowercase(), "EDUCATION".to_string());
         sector_keywords.insert("universitas".to_lowercase(), "EDUCATION".to_string());
         sector_keywords.insert("sekolah".to_lowercase(), "EDUCATION".to_string());
-        sector_keywords.insert("telekomunikasi".to_lowercase(), "TELECOMMUNICATIONS".to_string());
+        sector_keywords.insert(
+            "telekomunikasi".to_lowercase(),
+            "TELECOMMUNICATIONS".to_string(),
+        );
         sector_keywords.insert("telkom".to_lowercase(), "TELECOMMUNICATIONS".to_string());
         sector_keywords.insert("indosat".to_lowercase(), "TELECOMMUNICATIONS".to_string());
         sector_keywords.insert("xl".to_lowercase(), "TELECOMMUNICATIONS".to_string());
@@ -223,8 +229,10 @@ impl BssnCrawler {
         let base_url =
             Url::parse(&config.base_url).map_err(|e| anyhow::anyhow!("Invalid base URL: {}", e))?;
 
-        let org_name_regex = Regex::new(r"([A-Z][a-zA-Z\s&\.\-\(\)]+(?:PT|Tbk|CV|FA|Persero|Inc\.|Corp\.)?|[A-Z][a-zA-Z\s]+)")
-            .map_err(|e| anyhow::anyhow!("Failed to compile org name regex: {}", e))?;
+        let org_name_regex = Regex::new(
+            r"([A-Z][a-zA-Z\s&\.\-\(\)]+(?:PT|Tbk|CV|FA|Persero|Inc\.|Corp\.)?|[A-Z][a-zA-Z\s]+)",
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to compile org name regex: {}", e))?;
 
         let date_regexes = vec![
             Regex::new(r"(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})")
@@ -251,9 +259,8 @@ impl BssnCrawler {
         let link_selector =
             Selector::parse("a").map_err(|e| anyhow::anyhow!("Invalid selector 'a': {}", e))?;
 
-        let title_selector =
-            Selector::parse("h2, h3, h4, .title")
-                .map_err(|e| anyhow::anyhow!("Invalid selector 'h2, h3, h4, .title': {}", e))?;
+        let title_selector = Selector::parse("h2, h3, h4, .title")
+            .map_err(|e| anyhow::anyhow!("Invalid selector 'h2, h3, h4, .title': {}", e))?;
 
         Ok(Self {
             client: Client::builder()
@@ -340,7 +347,10 @@ impl BssnCrawler {
     }
 
     /// Parse press release items from HTML
-    pub fn parse_press_releases(&self, html_content: &str) -> Result<Vec<PressReleaseItem>, anyhow::Error> {
+    pub fn parse_press_releases(
+        &self,
+        html_content: &str,
+    ) -> Result<Vec<PressReleaseItem>, anyhow::Error> {
         let document = Html::parse_document(html_content);
         let mut items = Vec::new();
         let mut total_items = 0;
@@ -430,10 +440,11 @@ impl BssnCrawler {
                         let today = Utc::now().date_naive();
                         let min_date = NaiveDate::from_ymd_opt(2020, 1, 1);
 
-                        if let Some(min) = min_date {
-                            if date >= min && date <= today {
-                                return date;
-                            }
+                        if let Some(min) = min_date
+                            && date >= min
+                            && date <= today
+                        {
+                            return date;
                         }
                     }
                 }
@@ -445,21 +456,21 @@ impl BssnCrawler {
 
     /// Extract URL from element
     fn extract_url(&self, element: &scraper::ElementRef) -> String {
-        if let Some(link) = element.select(&self.link_selector).next() {
-            if let Some(href) = link.value().attr("href") {
-                let url = if href.starts_with("http") {
-                    href.to_string()
-                } else if href.starts_with("//") {
-                    // Protocol-relative URL
-                    format!("{}:{}", self.base_url.scheme(), href)
-                } else {
-                    self.base_url
-                        .join(href)
-                        .map(|u| u.to_string())
-                        .unwrap_or_default()
-                };
-                return url;
-            }
+        if let Some(link) = element.select(&self.link_selector).next()
+            && let Some(href) = link.value().attr("href")
+        {
+            let url = if href.starts_with("http") {
+                href.to_string()
+            } else if href.starts_with("//") {
+                // Protocol-relative URL
+                format!("{}:{}", self.base_url.scheme(), href)
+            } else {
+                self.base_url
+                    .join(href)
+                    .map(|u| u.to_string())
+                    .unwrap_or_default()
+            };
+            return url;
         }
         String::new()
     }
@@ -484,18 +495,18 @@ impl BssnCrawler {
             for word in &truncate_words {
                 let word_lower = word.to_lowercase();
                 let org_lower = org_name.to_lowercase();
-                
+
                 // Check for word with space before it (word boundary)
                 if let Some(pos) = org_lower.find(&format!(" {}", word_lower)) {
                     org_name = org_name[..pos].trim().to_string();
                     break;
                 }
                 // Also check for word at end of string
-                if org_lower.ends_with(&word_lower) {
-                    if let Some(pos) = org_lower.rfind(word_lower.as_str()) {
-                        org_name = org_name[..pos].trim().to_string();
-                        break;
-                    }
+                if org_lower.ends_with(&word_lower)
+                    && let Some(pos) = org_lower.rfind(word_lower.as_str())
+                {
+                    org_name = org_name[..pos].trim().to_string();
+                    break;
                 }
             }
 
@@ -538,10 +549,15 @@ impl BssnCrawler {
             .into_iter()
             .map(|item| {
                 let attack_type = self.keywords.extract_attack_type(&item.title);
-                let sector = item.sector.clone().or_else(|| self.keywords.extract_sector(&item.raw_content));
+                let sector = item
+                    .sector
+                    .clone()
+                    .or_else(|| self.keywords.extract_sector(&item.raw_content));
 
                 let draft = IncidentDraft::new(
-                    item.org_name.clone().unwrap_or_else(|| "BSSN Report".to_string()),
+                    item.org_name
+                        .clone()
+                        .unwrap_or_else(|| "BSSN Report".to_string()),
                     item.publication_date,
                     item.source_url,
                     "BSSN_PRESS_RELEASE".to_string(),
@@ -608,18 +624,21 @@ impl BssnCrawler {
         let pdf_regex = Regex::new(r"\.pdf(\?|$)").unwrap();
 
         for element in document.select(&self.link_selector) {
-            if let Some(href) = element.value().attr("href") {
-                if pdf_regex.is_match(href) {
-                    let url = if href.starts_with("http") {
-                        href.to_string()
-                    } else if href.starts_with("//") {
-                        format!("{}:{}", self.base_url.scheme(), href)
-                    } else {
-                        self.base_url.join(href).map(|u| u.to_string()).unwrap_or_default()
-                    };
-                    if !url.is_empty() {
-                        pdf_urls.push(url);
-                    }
+            if let Some(href) = element.value().attr("href")
+                && pdf_regex.is_match(href)
+            {
+                let url = if href.starts_with("http") {
+                    href.to_string()
+                } else if href.starts_with("//") {
+                    format!("{}:{}", self.base_url.scheme(), href)
+                } else {
+                    self.base_url
+                        .join(href)
+                        .map(|u| u.to_string())
+                        .unwrap_or_default()
+                };
+                if !url.is_empty() {
+                    pdf_urls.push(url);
                 }
             }
         }
@@ -633,14 +652,23 @@ impl BssnCrawler {
             .await
             .map_err(|_| anyhow::anyhow!("Rate limiter timeout"))??;
 
-        let response = self.client.get(pdf_url).send().await
+        let response = self
+            .client
+            .get(pdf_url)
+            .send()
+            .await
             .map_err(|e| anyhow::anyhow!("Failed to fetch PDF: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!("PDF request failed with status: {}", response.status()));
+            return Err(anyhow::anyhow!(
+                "PDF request failed with status: {}",
+                response.status()
+            ));
         }
 
-        let bytes = response.bytes().await
+        let bytes = response
+            .bytes()
+            .await
             .map_err(|e| anyhow::anyhow!("Failed to download PDF: {}", e))?;
 
         // Extract text from PDF
@@ -649,11 +677,15 @@ impl BssnCrawler {
 
         // Check if PDF contains cyber incident information
         if !self.keywords.contains_cyber_keywords(&text) {
-            return Err(anyhow::anyhow!("PDF does not contain cyber incident keywords"));
+            return Err(anyhow::anyhow!(
+                "PDF does not contain cyber incident keywords"
+            ));
         }
 
         // Extract information from PDF text
-        let org_name = self.extract_org_name(&text).unwrap_or_else(|| "BSSN Threat Report".to_string());
+        let org_name = self
+            .extract_org_name(&text)
+            .unwrap_or_else(|| "BSSN Threat Report".to_string());
         let attack_type = self.keywords.extract_attack_type(&text);
         let sector = self.keywords.extract_sector(&text);
 
@@ -679,12 +711,15 @@ impl BssnCrawler {
         let mut unique_results = Vec::new();
 
         for result in results {
-            let is_duplicate = unique_results
-                .iter()
-                .any(|existing: &ExtractionResult| {
-                    result.org_name.to_lowercase() == existing.org_name.to_lowercase()
-                        && result.disclosure_date.signed_duration_since(existing.disclosure_date).num_days().abs() <= 7
-                });
+            let is_duplicate = unique_results.iter().any(|existing: &ExtractionResult| {
+                result.org_name.to_lowercase() == existing.org_name.to_lowercase()
+                    && result
+                        .disclosure_date
+                        .signed_duration_since(existing.disclosure_date)
+                        .num_days()
+                        .abs()
+                        <= 7
+            });
 
             if !is_duplicate {
                 unique_results.push(result);
@@ -722,5 +757,4 @@ impl CrawlerSource for BssnCrawler {
 }
 
 #[cfg(test)]
-mod tests {
-}
+mod tests {}
