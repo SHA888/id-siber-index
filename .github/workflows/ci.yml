@@ -77,7 +77,7 @@ jobs:
 
     - name: Install dependencies
       working-directory: ./nlp
-      run: uv sync --frozen
+      run: uv sync --frozen --dev
 
     - name: Python ruff check
       working-directory: ./nlp
