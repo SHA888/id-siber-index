@@ -16,6 +16,7 @@ WORKDIR /app
 
 # Copy Python files
 COPY pyproject.toml ./
+COPY uv.lock ./
 COPY src/ ./src/
 COPY enrichment/ ./enrichment/
 
