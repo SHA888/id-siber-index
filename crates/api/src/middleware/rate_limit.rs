@@ -7,7 +7,9 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 pub struct RateLimiter {
+    #[allow(dead_code)]
     requests: Arc<RwLock<std::collections::HashMap<String, u32>>>,
+    #[allow(dead_code)]
     max_requests: u32,
 }
 

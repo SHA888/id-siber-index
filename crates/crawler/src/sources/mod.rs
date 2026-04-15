@@ -1,10 +1,14 @@
 //! Crawler source implementations
 
 pub mod bssn;
-pub mod bssn_tests;
 pub mod idx;
 pub mod media;
 pub mod ojk;
+
+#[cfg(test)]
+pub mod bssn_tests;
+
+#[cfg(test)]
 pub mod ojk_tests;
 
 use async_trait::async_trait;

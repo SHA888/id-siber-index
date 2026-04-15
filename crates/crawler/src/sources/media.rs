@@ -8,6 +8,12 @@ pub struct MediaCrawler {
     config: SourceConfig,
 }
 
+impl Default for MediaCrawler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MediaCrawler {
     pub fn new() -> Self {
         Self {

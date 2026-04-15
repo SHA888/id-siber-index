@@ -61,6 +61,12 @@ pub struct BssnKeywordMatcher {
     sector_keywords: HashMap<String, String>,
 }
 
+impl Default for BssnKeywordMatcher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BssnKeywordMatcher {
     pub fn new() -> Self {
         let bahasa_keywords = vec![

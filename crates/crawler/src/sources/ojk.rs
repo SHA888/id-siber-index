@@ -70,6 +70,12 @@ pub struct OjkKeywordMatcher {
     sector_keywords: HashMap<String, String>,
 }
 
+impl Default for OjkKeywordMatcher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OjkKeywordMatcher {
     pub fn new() -> Self {
         let bahasa_keywords = vec![

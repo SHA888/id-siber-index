@@ -14,14 +14,14 @@ repos:
     hooks:
       - id: rust-fmt
         name: rust fmt
-        entry: cargo fmt --
+        entry: cargo fmt
         language: system
         types: [rust]
         pass_filenames: false
 
       - id: rust-clippy
         name: rust clippy
-        entry: cargo clippy -- -D warnings -A unused-variables -A dead-code -A clippy::new-without-default -A unused-imports -A ambiguous-glob-reexports -A clippy::enum-variant-names
+        entry: cargo clippy -- -D warnings
         language: system
         types: [rust]
         pass_filenames: false

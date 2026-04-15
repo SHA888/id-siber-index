@@ -71,7 +71,7 @@ jobs:
         path: |
           ~/.cache/uv
           nlp/.venv/
-        key: ${{ runner.os }}-uv-${{ hashFiles('nlp/pyproject.toml', 'nlp/uv.lock') }}
+        key: ${{ runner.os }}-uv-dev-${{ hashFiles('nlp/pyproject.toml', 'nlp/uv.lock') }}
         restore-keys: |
           ${{ runner.os }}-uv-
 
