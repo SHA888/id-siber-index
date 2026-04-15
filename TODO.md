@@ -150,10 +150,10 @@ Patches do NOT change the schema, add new endpoints, or add new data sources. Th
 
 ### OJK Crawler
 
-- [ ] Parse OJK enforcement releases and complaint summary reports
-- [ ] Extract: financial sector incidents, fraud complaints data
-- [ ] Link to relevant IDX disclosures where org is the same
-- [ ] Unit tests for parser
+- [x] Parse OJK enforcement releases and complaint summary reports
+- [x] Extract: financial sector incidents, fraud complaints data
+- [x] Link to relevant IDX disclosures where org is the same
+- [x] Unit tests for parser
 
 ###
  Media Crawler

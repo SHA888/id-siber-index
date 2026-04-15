@@ -290,3 +290,6 @@ localstorage
 # SvelteKit build
 .svelte-kit/
 build/
+.skill/
+.cursor/rules/skill-context.md
+.windsurf/rules/skill-context.md
