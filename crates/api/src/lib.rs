@@ -3,6 +3,9 @@
 //! This crate provides the HTTP API layer for serving incident data, handling
 //! search requests, and managing user interactions with the index.
 
+// TODO: Refactor glob re-exports to avoid ambiguous names
+#![allow(ambiguous_glob_reexports, unused_imports)]
+
 pub mod error;
 pub mod handlers;
 pub mod middleware;

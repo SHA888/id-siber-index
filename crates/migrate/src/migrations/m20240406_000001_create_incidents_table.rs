@@ -1,5 +1,7 @@
 //! Create incidents table migration
 
+#![allow(clippy::enum_variant_names)]
+
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]

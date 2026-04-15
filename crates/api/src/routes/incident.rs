@@ -1,9 +1,6 @@
 //! Incident routes
 
-use axum::{
-    Router,
-    routing::{delete, get, post, put},
-};
+use axum::{Router, routing::get};
 
 use crate::handlers::incident::*;
 

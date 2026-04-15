@@ -1,5 +1,7 @@
 //! Add enum types and update incidents table
 
+#![allow(clippy::enum_variant_names)]
+
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
