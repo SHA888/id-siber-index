@@ -5,6 +5,7 @@ pub mod bssn_tests;
 pub mod idx;
 pub mod media;
 pub mod ojk;
+pub mod ojk_tests;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
