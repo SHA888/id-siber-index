@@ -421,7 +421,7 @@ mod tests {
         // Test that the crawl method exists and returns the right type
         // Note: This test doesn't actually crawl since it would require network access
         // We just verify the method signature is correct
-        let _ = crawler.crawl();
+        std::mem::drop(crawler.crawl());
     }
 
     #[test]
