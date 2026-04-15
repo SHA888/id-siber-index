@@ -71,9 +71,9 @@ jobs:
         path: |
           ~/.cache/uv
           nlp/.venv/
-        key: ${{ runner.os }}-uv-dev-${{ hashFiles('nlp/pyproject.toml', 'nlp/uv.lock') }}
+        key: ${{ runner.os }}-uv-dev-v2-${{ hashFiles('nlp/pyproject.toml', 'nlp/uv.lock') }}
         restore-keys: |
-          ${{ runner.os }}-uv-
+          ${{ runner.os }}-uv-dev-v2-
 
     - name: Install dependencies
       working-directory: ./nlp
