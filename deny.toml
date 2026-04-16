@@ -7,6 +7,10 @@ ignore = [
     # RSA vulnerability in sqlx-mysql - we only use PostgreSQL
     # This is a transitive dependency that we don't directly control
     "RUSTSEC-2023-0071",
+    # rustls-webpki wildcard name constraint bypass - transitive dep, upgrade pending upstream
+    "RUSTSEC-2026-0099",
+    # fxhash unmaintained - transitive dep via servo/selectors, no direct usage
+    "RUSTSEC-2025-0057",
 ]
 
 [licenses]
