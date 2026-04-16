@@ -127,6 +127,10 @@ Patches do NOT change the schema, add new endpoints, or add new data sources. Th
 - [x] Add `pg_trgm` extension migration for full-text search
 - [x] Document schema in `schema/README.md` with field definitions and enum values
 - [x] Write `schema/incident.json` (JSON Schema for external consumers)
+- [x] Write SQL migration: performance indexes for sector + updated_at queries
+  - [x] `CREATE INDEX IF NOT EXISTS idx_incidents_sector ON incidents(org_sector)`
+  - [x] `CREATE INDEX IF NOT EXISTS idx_incidents_updated ON incidents(updated_at)`
+  - [x] Required by downstream consumers filtering `WHERE org_sector = 'Healthcare' AND updated_at >= $1`
 
 ### IDX Crawler
 
@@ -155,8 +159,7 @@ Patches do NOT change the schema, add new endpoints, or add new data sources. Th
 - [x] Link to relevant IDX disclosures where org is the same
 - [x] Unit tests for parser
 
-###
- Media Crawler
+### Media Crawler
 
 - [ ] Tempo (`tempo.co/tag/keamanan-siber`)
 - [ ] Kompas Tech (`tekno.kompas.com`)
@@ -184,8 +187,7 @@ Patches do NOT change the schema, add new endpoints, or add new data sources. Th
 
 ### API Server (Axum)
 
-- [ ] `GET /v1/incidents` — list with filters (sector, AZt+c+_
-type, from, until)
+- [ ] `GET /v1/incidents` — list with filters (sector, attack_type, from, until)
 - [ ] `GET /v1/incidents/{id}` — single record
 - [ ] `GET /v1/incidents/recent` — last 30 days
 - [ ] `GET /v1/stats` — aggregate counts by sector, attack type, year

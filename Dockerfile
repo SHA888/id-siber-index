@@ -1,5 +1,5 @@
 # Multi-stage build for Indonesia Cybersecurity Incident Index
-FROM rust:1.94-slim as builder
+FROM rust:1.94-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -19,7 +19,7 @@ COPY crates/ ./crates/
 RUN cargo build --release
 
 # Runtime stage
-FROM debian:bookworm-slim as runtime
+FROM debian:bookworm-slim AS runtime
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -59,15 +59,15 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 CMD ["idsiber"]
 
 # Development stage
-FROM builder as development
+FROM builder AS development
 WORKDIR /app
 RUN cargo install cargo-watch
 CMD ["cargo", "watch", "-x", "run", "--bin", "idsiber"]
 
 # API stage (for docker-compose)
-FROM runtime as api
+FROM runtime AS api
 CMD ["idsiber"]
 
 # Migration stage (for docker-compose)
-FROM runtime as migrate
+FROM runtime AS migrate
 ENTRYPOINT ["migrate"]

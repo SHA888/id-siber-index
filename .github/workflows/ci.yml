@@ -47,7 +47,7 @@ jobs:
       run: cargo install cargo-audit
 
     - name: Cargo audit
-      run: cargo audit
+      run: cargo audit --config audit.toml
 
   python:
     name: Python
@@ -77,7 +77,7 @@ jobs:
 
     - name: Install dependencies
       working-directory: ./nlp
-      run: uv sync --frozen --dev
+      run: uv sync --frozen --extra dev
 
     - name: Python ruff check
       working-directory: ./nlp
