@@ -9,6 +9,9 @@ pub mod ojk;
 pub mod bssn_tests;
 
 #[cfg(test)]
+pub mod media_tests;
+
+#[cfg(test)]
 pub mod ojk_tests;
 
 use async_trait::async_trait;

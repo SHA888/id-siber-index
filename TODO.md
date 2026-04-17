@@ -161,13 +161,13 @@ Patches do NOT change the schema, add new endpoints, or add new data sources. Th
 
 ### Media Crawler
 
-- [ ] Tempo (`tempo.co/tag/keamanan-siber`)
-- [ ] Kompas Tech (`tekno.kompas.com`)
-- [ ] Detik Inet (`inet.detik.com`)
-- [ ] Bisnis Indonesia (`teknologi.bisnis.com`)
-- [ ] Respect `robots.txt` and crawl delay for all sources
-- [ ] Deduplicate: same incident in multiple outlets → single record, multiple source URLs
-- [ ] Unit tests per outlet parser
+- [x] Tempo (`tempo.co/tag/keamanan-siber`)
+- [x] Kompas Tech (`tekno.kompas.com`)
+- [x] Detik Inet (`inet.detik.com`)
+- [x] Bisnis Indonesia (`teknologi.bisnis.com`)
+- [x] Respect `robots.txt` and crawl delay for all sources
+- [x] Deduplicate: same incident in multiple outlets → single record, multiple source URLs
+- [x] Unit tests per outlet parser
 
 ### Normalization Pipeline
 
