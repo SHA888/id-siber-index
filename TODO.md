@@ -171,12 +171,12 @@ Patches do NOT change the schema, add new endpoints, or add new data sources. Th
 
 ### Normalization Pipeline
 
-- [ ] `IncidentDraft` → `Incident` normalization logic
-- [ ] Date parsing: handle Indonesian date formats (`8 Mei 2024`, `May 8, 2024`)
-- [ ] Org name normalization: `PT Bank X Tbk` → `Bank X` canonical name
-- [ ] Attack type classification: keyword-based rules (ML in v0.2.0)
-- [ ] Sector classification: keyword + org name lookup rules
-- [ ] Confidence scoring on each normalized field
+- [x] `IncidentDraft` → `Incident` normalization logic (`crates/crawler/src/normalizer.rs`)
+- [x] Date parsing: handle Indonesian date formats (`8 Mei 2024`, `May 8, 2024`)
+- [x] Org name normalization: `PT Bank X Tbk` → `Bank X` canonical name
+- [x] Attack type classification: keyword-based rules (ML in v0.2.0)
+- [x] Sector classification: keyword + org name lookup rules
+- [x] Confidence scoring on each normalized field
 
 ### Verification CLI
 

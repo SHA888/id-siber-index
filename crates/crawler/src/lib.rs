@@ -6,12 +6,14 @@
 
 pub mod extractors;
 pub mod incident_draft;
+pub mod normalizer;
 pub mod rate_limiter;
 pub mod scheduler;
 pub mod sources;
 
 pub use extractors::*;
 pub use incident_draft::*;
+pub use normalizer::*;
 pub use rate_limiter::*;
 pub use scheduler::*;
 pub use sources::*;
