@@ -6,6 +6,7 @@ pub mod crawl;
 pub mod db;
 pub mod export;
 pub mod import;
+pub mod review;
 pub mod search;
 pub mod serve;
 

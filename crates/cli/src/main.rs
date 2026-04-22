@@ -62,6 +62,21 @@ enum Commands {
         #[arg(short, long, help = "Filter by sector")]
         sector: Option<String>,
     },
+    /// Review incident drafts
+    Review {
+        #[arg(short, long, help = "Input file containing IncidentDraft records")]
+        input: Option<String>,
+        #[arg(short, long, help = "Output file for verified incidents")]
+        output: Option<String>,
+        #[arg(long, help = "Batch mode (non-interactive)")]
+        batch: bool,
+        #[arg(long, help = "Auto-accept all records (dangerous!)")]
+        auto_accept: bool,
+        #[arg(long, help = "Minimum confidence score (0.0-1.0)")]
+        min_confidence: Option<f32>,
+        #[arg(short, long, help = "Limit number of records to review")]
+        limit: Option<usize>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -107,6 +122,25 @@ async fn main() -> Result<()> {
             sector,
         } => {
             commands::export::run(file, format, sector).await?;
+        }
+        Commands::Review {
+            input,
+            output,
+            batch,
+            auto_accept,
+            min_confidence,
+            limit,
+        } => {
+            use std::path::PathBuf;
+            let options = commands::review::ReviewOptions {
+                input_file: input.map(PathBuf::from),
+                output_file: output.map(PathBuf::from),
+                batch,
+                auto_accept,
+                min_confidence,
+                limit,
+            };
+            commands::review::run(options).await?;
         }
     }
 
