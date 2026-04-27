@@ -121,7 +121,7 @@ static ORG_CANONICAL_NAMES: LazyLock<Vec<(&'static str, &'static str)>> = LazyLo
         ("dirjen pajak", "Direktorat Jenderal Pajak"),
     ];
     // Sort by alias length descending (most specific first)
-    entries.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+    entries.sort_by_key(|a| std::cmp::Reverse(a.0.len()));
     entries
 });
 

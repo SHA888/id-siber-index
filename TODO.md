@@ -180,10 +180,10 @@ Patches do NOT change the schema, add new endpoints, or add new data sources. Th
 
 ### Verification CLI
 
-- [ ] `isi review` — interactive CLI to review `IncidentDraft` records
-- [ ] Accept / reject / edit individual fields
-- [ ] Mark record as `verified: true` on accept
-- [ ] Batch review mode for historical backfill
+- [x] `isi review` — interactive CLI to review unverified incident records (`crates/cli/src/commands/review.rs`)
+- [x] Accept / reject / edit individual fields
+- [x] Mark record as `verified: true` on accept
+- [x] Batch review mode for historical backfill
 
 ### API Server (Axum)
 
