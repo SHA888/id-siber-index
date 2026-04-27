@@ -62,20 +62,22 @@ enum Commands {
         #[arg(short, long, help = "Filter by sector")]
         sector: Option<String>,
     },
-    /// Review incident drafts
+    /// Review unverified incidents interactively
     Review {
-        #[arg(short, long, help = "Input file containing IncidentDraft records")]
-        input: Option<String>,
-        #[arg(short, long, help = "Output file for verified incidents")]
-        output: Option<String>,
-        #[arg(long, help = "Batch mode (non-interactive)")]
+        #[arg(long, help = "Run in non-interactive batch mode")]
         batch: bool,
-        #[arg(long, help = "Auto-accept all records (dangerous!)")]
+        #[arg(long, help = "Auto-accept all matching incidents (batch mode)")]
         auto_accept: bool,
-        #[arg(long, help = "Minimum confidence score (0.0-1.0)")]
-        min_confidence: Option<f32>,
-        #[arg(short, long, help = "Limit number of records to review")]
+        #[arg(long, help = "Auto-reject all matching incidents (batch mode)")]
+        auto_reject: bool,
+        #[arg(short, long, help = "Maximum number of records to process")]
         limit: Option<usize>,
+        #[arg(short, long, help = "Filter by sector")]
+        sector: Option<String>,
+        #[arg(short, long, help = "Filter by attack type")]
+        attack_type: Option<String>,
+        #[arg(long, help = "Filter by source type")]
+        source_type: Option<String>,
     },
 }
 
@@ -124,23 +126,24 @@ async fn main() -> Result<()> {
             commands::export::run(file, format, sector).await?;
         }
         Commands::Review {
-            input,
-            output,
             batch,
             auto_accept,
-            min_confidence,
+            auto_reject,
             limit,
+            sector,
+            attack_type,
+            source_type,
         } => {
-            use std::path::PathBuf;
-            let options = commands::review::ReviewOptions {
-                input_file: input.map(PathBuf::from),
-                output_file: output.map(PathBuf::from),
+            let args = commands::review::ReviewArgs {
                 batch,
                 auto_accept,
-                min_confidence,
+                auto_reject,
                 limit,
+                sector,
+                attack_type,
+                source_type,
             };
-            commands::review::run(options).await?;
+            commands::review::run(args).await?;
         }
     }
 

@@ -1,350 +1,482 @@
-//! Verification CLI for reviewing IncidentDraft records
+//! Interactive review command for unverified incidents
 //!
-//! This module provides an interactive CLI to review, accept, reject, or edit
-//! IncidentDraft records before they are marked as verified incidents.
+//! This command provides an interactive CLI to review, edit, accept, or reject
+//! unverified incident records. It supports both interactive and batch modes.
 
-use anyhow::Result;
-use chrono::NaiveDate;
-use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
-use std::path::PathBuf;
+use anyhow::{Context, Result};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, Database, DatabaseConnection, EntityTrait, QueryFilter, Set,
+};
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tracing::{info, warn};
+use uuid::Uuid;
 
-use schema::models::incident::CreateIncident;
-use crawler::incident_draft::IncidentDraft;
+use schema::entities::incident::{self, Entity as IncidentEntity, Model as IncidentModel};
 
-/// Review command options
-#[derive(Debug, Clone)]
-pub struct ReviewOptions {
-    /// Path to file containing IncidentDraft records
-    pub input_file: Option<PathBuf>,
-    /// Output file for verified incidents
-    pub output_file: Option<PathBuf>,
-    /// Batch mode (non-interactive)
+/// Review command arguments
+#[derive(Debug, Clone, Default)]
+pub struct ReviewArgs {
+    /// Run in non-interactive batch mode
     pub batch: bool,
-    /// Auto-accept all records (dangerous!)
+    /// Auto-accept incidents (batch mode only)
     pub auto_accept: bool,
-    /// Filter by minimum confidence score
-    pub min_confidence: Option<f32>,
-    /// Limit number of records to review
+    /// Auto-reject incidents (batch mode only)
+    pub auto_reject: bool,
+    /// Maximum number of records to process
     pub limit: Option<usize>,
+    /// Filter by sector
+    pub sector: Option<String>,
+    /// Filter by attack type
+    pub attack_type: Option<String>,
+    /// Filter by source type
+    pub source_type: Option<String>,
 }
 
-/// Review result for a single record
-#[derive(Debug, Clone)]
-pub enum ReviewDecision {
-    Accept(CreateIncident),
-    Reject(String), // Reason for rejection
-    Edit(CreateIncident),
-    Skip,
+/// Establish a database connection from the DATABASE_URL environment variable
+async fn get_db() -> Result<DatabaseConnection> {
+    let database_url =
+        std::env::var("DATABASE_URL").context("DATABASE_URL environment variable not set")?;
+    Database::connect(&database_url)
+        .await
+        .context("Failed to connect to database")
 }
 
-/// Run the review CLI
-pub async fn run(options: ReviewOptions) -> Result<()> {
-    println!("Starting incident review process...");
-    
-    // Load incident drafts (for now, we'll simulate loading)
-    // TODO: Implement actual loading from database or file
-    let drafts = load_incident_drafts(&options).await?;
-    
-    if drafts.is_empty() {
-        println!("No incident drafts found to review.");
+/// Fetch unverified incidents matching the given filters
+async fn fetch_unverified(
+    db: &DatabaseConnection,
+    args: &ReviewArgs,
+) -> Result<Vec<IncidentModel>> {
+    let mut query = IncidentEntity::find().filter(incident::Column::Verified.eq(false));
+
+    if let Some(sector) = &args.sector {
+        query = query.filter(incident::Column::OrgSector.eq(sector.as_str()));
+    }
+
+    if let Some(attack_type) = &args.attack_type {
+        query = query.filter(incident::Column::AttackType.eq(attack_type.as_str()));
+    }
+
+    if let Some(source_type) = &args.source_type {
+        query = query.filter(incident::Column::SourceType.eq(source_type.as_str()));
+    }
+
+    let mut results = query
+        .all(db)
+        .await
+        .context("Failed to query unverified incidents")?;
+
+    // Sort by creation date (oldest first for backfill)
+    results.sort_by_key(|a| a.created_at);
+
+    if let Some(limit) = args.limit {
+        results.truncate(limit);
+    }
+
+    Ok(results)
+}
+
+/// Display an incident in a formatted way
+fn display_incident(incident: &IncidentModel, index: usize, total: usize) {
+    println!("\n{}", "─".repeat(70));
+    println!("  Incident {} of {}", index + 1, total);
+    println!("{}", "─".repeat(70));
+    println!("  ID:              {}", incident.id);
+    println!("  Organization:    {}", incident.org_name);
+    println!("  Sector:          {}", incident.org_sector);
+    println!(
+        "  Incident Date:   {}",
+        incident.incident_date.format("%Y-%m-%d")
+    );
+    println!(
+        "  Disclosure Date: {}",
+        incident.disclosure_date.format("%Y-%m-%d")
+    );
+    println!("  Attack Type:     {}", incident.attack_type);
+    println!(
+        "  Source:          {} ({})",
+        incident.source_type, incident.source_url
+    );
+    if let Some(notes) = &incident.notes {
+        println!("  Notes:           {}", notes);
+    }
+    if let Some(actor) = &incident.actor_alias {
+        println!("  Actor Alias:     {}", actor);
+    }
+    if let Some(group) = &incident.actor_group {
+        println!("  Actor Group:     {}", group);
+    }
+    println!("{}", "─".repeat(70));
+}
+
+/// Display available actions
+fn display_actions() {
+    println!("\n  Actions:");
+    println!("    [a] Accept  - Mark as verified and save");
+    println!("    [r] Reject  - Delete this incident");
+    println!("    [e] Edit    - Modify fields interactively");
+    println!("    [s] Skip    - Leave unchanged, go to next");
+    println!("    [q] Quit    - Stop reviewing");
+    print!("\n  Choice: ");
+}
+
+/// Read a line from stdin asynchronously
+async fn read_line() -> Result<String> {
+    let stdin = tokio::io::stdin();
+    let mut reader = BufReader::new(stdin);
+    let mut line = String::new();
+    reader
+        .read_line(&mut line)
+        .await
+        .context("Failed to read input")?;
+    Ok(line.trim().to_lowercase())
+}
+
+/// Prompt for a new value, returning None if user enters empty string
+async fn prompt_value(prompt: &str, current: &str) -> Result<Option<String>> {
+    println!("\n  {}: {}", prompt, current);
+    print!("  New value (or press Enter to keep): ");
+    let input = read_line().await?;
+    if input.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(input))
+    }
+}
+
+/// Prompt for an optional value
+async fn prompt_optional(prompt: &str, current: &Option<String>) -> Result<Option<String>> {
+    let current_str = current.as_deref().unwrap_or("(none)");
+    println!("\n  {}: {}", prompt, current_str);
+    print!("  New value (or 'clear' to remove, Enter to keep): ");
+    let input = read_line().await?;
+    if input.is_empty() {
+        Ok(None) // keep current
+    } else if input == "clear" {
+        Ok(Some(String::new())) // signal to clear
+    } else {
+        Ok(Some(input))
+    }
+}
+
+/// Interactive edit mode for an incident
+async fn edit_incident(db: &DatabaseConnection, incident: &IncidentModel) -> Result<bool> {
+    println!("\n  Editing fields (press Enter to keep current value):");
+
+    let mut active_model: incident::ActiveModel = incident.clone().into();
+    let mut modified = false;
+
+    // Edit org_name
+    if let Some(new_value) = prompt_value("Organization Name", &incident.org_name).await? {
+        active_model.org_name = Set(new_value);
+        modified = true;
+    }
+
+    // Edit org_sector
+    if let Some(new_value) = prompt_value("Sector", &incident.org_sector).await? {
+        active_model.org_sector = Set(new_value);
+        modified = true;
+    }
+
+    // Edit attack_type
+    if let Some(new_value) = prompt_value("Attack Type", &incident.attack_type).await? {
+        active_model.attack_type = Set(new_value);
+        modified = true;
+    }
+
+    // Edit notes
+    match prompt_optional("Notes", &incident.notes).await? {
+        Some(new_value) if new_value.is_empty() => {
+            active_model.notes = Set(None);
+            modified = true;
+        }
+        Some(new_value) => {
+            active_model.notes = Set(Some(new_value));
+            modified = true;
+        }
+        None => {}
+    }
+
+    if modified {
+        active_model.updated_at = Set(chrono::Utc::now().into());
+        active_model
+            .update(db)
+            .await
+            .context("Failed to update incident")?;
+        println!("  ✓ Incident updated");
+    } else {
+        println!("  No changes made");
+    }
+
+    Ok(modified)
+}
+
+/// Accept an incident (mark as verified)
+async fn accept_incident(db: &DatabaseConnection, id: Uuid) -> Result<()> {
+    let model = IncidentEntity::find_by_id(id)
+        .one(db)
+        .await
+        .context("Failed to find incident")?
+        .context("Incident not found")?;
+
+    let mut active_model: incident::ActiveModel = model.into();
+    active_model.verified = Set(true);
+    active_model.updated_at = Set(chrono::Utc::now().into());
+    active_model
+        .update(db)
+        .await
+        .context("Failed to verify incident")?;
+
+    println!("  ✓ Incident accepted and marked as verified");
+    Ok(())
+}
+
+/// Reject an incident (delete it)
+async fn reject_incident(db: &DatabaseConnection, id: Uuid) -> Result<()> {
+    let model = IncidentEntity::find_by_id(id)
+        .one(db)
+        .await
+        .context("Failed to find incident")?
+        .context("Incident not found")?;
+
+    let active_model: incident::ActiveModel = model.into();
+    active_model
+        .delete(db)
+        .await
+        .context("Failed to delete incident")?;
+
+    println!("  ✗ Incident rejected and deleted");
+    Ok(())
+}
+
+/// Run interactive review of unverified incidents
+async fn run_interactive(db: &DatabaseConnection, args: &ReviewArgs) -> Result<()> {
+    let incidents = fetch_unverified(db, args).await?;
+
+    if incidents.is_empty() {
+        println!("\nNo unverified incidents found matching the criteria.");
         return Ok(());
     }
-    
-    println!("Found {} incident draft(s) to review.", drafts.len());
-    
-    let mut accepted = 0;
-    let mut rejected = 0;
-    let mut edited = 0;
-    let mut skipped = 0;
-    
-    for (index, draft) in drafts.iter().enumerate() {
-        if let Some(limit) = options.limit {
-            if index >= limit {
-                println!("Reached review limit of {}.", limit);
+
+    println!(
+        "\nFound {} unverified incident(s) to review.\n",
+        incidents.len()
+    );
+
+    let total = incidents.len();
+    let mut accepted = 0usize;
+    let mut rejected = 0usize;
+    let mut skipped = 0usize;
+    let mut edited = 0usize;
+
+    for (idx, incident) in incidents.iter().enumerate() {
+        display_incident(incident, idx, total);
+        display_actions();
+
+        let choice = read_line().await?;
+
+        match choice.as_str() {
+            "a" | "accept" => {
+                if let Err(e) = accept_incident(db, incident.id).await {
+                    warn!("Failed to accept incident {}: {}", incident.id, e);
+                    println!("  Error accepting incident: {}", e);
+                    skipped += 1;
+                } else {
+                    accepted += 1;
+                }
+            }
+            "r" | "reject" => {
+                print!("  Are you sure you want to delete this incident? [y/N]: ");
+                let confirm = read_line().await?;
+                if confirm == "y" || confirm == "yes" {
+                    if let Err(e) = reject_incident(db, incident.id).await {
+                        warn!("Failed to reject incident {}: {}", incident.id, e);
+                        println!("  Error rejecting incident: {}", e);
+                        skipped += 1;
+                    } else {
+                        rejected += 1;
+                    }
+                } else {
+                    println!("  Cancelled. Skipping...");
+                    skipped += 1;
+                }
+            }
+            "e" | "edit" => {
+                match edit_incident(db, incident).await {
+                    Ok(did_edit) => {
+                        if did_edit {
+                            edited += 1;
+                        }
+                        // After editing, ask if they want to accept
+                        print!("\n  Accept this incident? [y/N]: ");
+                        let confirm = read_line().await?;
+                        if confirm == "y" || confirm == "yes" {
+                            if let Err(e) = accept_incident(db, incident.id).await {
+                                warn!("Failed to accept incident {}: {}", incident.id, e);
+                                println!("  Error accepting incident: {}", e);
+                            } else {
+                                accepted += 1;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        warn!("Failed to edit incident {}: {}", incident.id, e);
+                        println!("  Error editing incident: {}", e);
+                        skipped += 1;
+                    }
+                }
+            }
+            "s" | "skip" => {
+                println!("  Skipped.");
+                skipped += 1;
+            }
+            "q" | "quit" => {
+                println!("\n  Quitting review session.");
                 break;
             }
-        }
-        
-        println!("\n--- Reviewing Draft {} of {} ---", index + 1, drafts.len());
-        display_draft_summary(draft);
-        
-        let decision = if options.batch || options.auto_accept {
-            // Batch mode: auto-accept or use simple rules
-            if options.auto_accept {
-                println!("Auto-accepting draft...");
-                ReviewDecision::Accept(convert_draft_to_incident(draft))
-            } else {
-                batch_review_draft(draft, &options).await?
-            }
-        } else {
-            // Interactive mode
-            interactive_review_draft(draft).await?
-        };
-        
-        match decision {
-            ReviewDecision::Accept(_incident) => {
-                println!("✓ Accepted draft as verified incident.");
-                // TODO: Save to database
-                accepted += 1;
-            }
-            ReviewDecision::Reject(reason) => {
-                println!("✗ Rejected draft: {}", reason);
-                // TODO: Log rejection with reason
-                rejected += 1;
-            }
-            ReviewDecision::Edit(_incident) => {
-                println!("✎ Edited and accepted draft.");
-                // TODO: Save edited version to database
-                edited += 1;
-            }
-            ReviewDecision::Skip => {
-                println!("⏭ Skipped draft.");
+            _ => {
+                println!("  Unknown choice. Skipping...");
                 skipped += 1;
             }
         }
     }
-    
-    println!("\n--- Review Summary ---");
-    println!("Accepted: {}", accepted);
-    println!("Rejected: {}", rejected);
-    println!("Edited: {}", edited);
-    println!("Skipped: {}", skipped);
-    
+
+    println!("\n{}", "═".repeat(70));
+    println!("  Review Summary");
+    println!("{}", "═".repeat(70));
+    println!("  Accepted:  {}", accepted);
+    println!("  Rejected:  {}", rejected);
+    println!("  Edited:    {}", edited);
+    println!("  Skipped:   {}", skipped);
+    println!("{}", "═".repeat(70));
+
     Ok(())
 }
 
-/// Load incident drafts from source
-async fn load_incident_drafts(_options: &ReviewOptions) -> Result<Vec<IncidentDraft>> {
-    // TODO: Implement actual loading from:
-    // 1. Database table for unverified incidents
-    // 2. JSON/CSV file
-    // 3. Crawler output
-    
-    // For now, return some example drafts
-    let example_drafts = vec![
-        IncidentDraft::new(
-            "PT Bank Contoh Tbk".to_string(),
-            NaiveDate::from_ymd_opt(2024, 5, 15).unwrap(),
-            "https://example.com/disclosure".to_string(),
-            "IDX_DISCLOSURE".to_string(),
-        )
-        .with_attack_type(Some("RANSOMWARE".to_string()))
-        .with_org_sector(Some("BANKING".to_string()))
-        .with_data_categories(vec!["PERSONAL_DATA".to_string()])
-        .with_confidence(0.8)
-        .with_notes(Some("Example ransomware attack on bank".to_string())),
-        
-        IncidentDraft::new(
-            "Rumah Sakit Sehat".to_string(),
-            NaiveDate::from_ymd_opt(2024, 5, 10).unwrap(),
-            "https://news.com/breach".to_string(),
-            "NEWS_ARTICLE".to_string(),
-        )
-        .with_attack_type(Some("DATA_BREACH".to_string()))
-        .with_org_sector(Some("HEALTHCARE".to_string()))
-        .with_data_categories(vec!["HEALTH_INFORMATION".to_string(), "PERSONAL_DATA".to_string()])
-        .with_confidence(0.6)
-        .with_notes(Some("Potential data breach at hospital".to_string())),
-    ];
-    
-    Ok(example_drafts)
-}
+/// Run batch review mode
+async fn run_batch(db: &DatabaseConnection, args: &ReviewArgs) -> Result<()> {
+    let incidents = fetch_unverified(db, args).await?;
 
-/// Display a summary of the incident draft
-fn display_draft_summary(draft: &IncidentDraft) {
-    println!("Organization: {}", draft.org_name);
-    if let Some(sector) = &draft.org_sector {
-        println!("Sector: {}", sector);
+    if incidents.is_empty() {
+        println!("\nNo unverified incidents found matching the criteria.");
+        return Ok(());
     }
-    println!("Disclosure Date: {}", draft.disclosure_date);
-    if let Some(incident_date) = draft.incident_date {
-        println!("Incident Date: {}", incident_date);
-    }
-    if let Some(attack_type) = &draft.attack_type {
-        println!("Attack Type: {}", attack_type);
-    }
-    if !draft.data_categories.is_empty() {
-        println!("Data Categories: {}", draft.data_categories.join(", "));
-    }
-    println!("Source: {}", draft.source_url);
-    println!("Source Type: {}", draft.source_type);
-    println!("Confidence: {:.1}%", draft.confidence * 100.0);
-    if let Some(notes) = &draft.notes {
-        println!("Notes: {}", notes);
-    }
-}
 
-/// Interactive review of a single draft
-async fn interactive_review_draft(draft: &IncidentDraft) -> Result<ReviewDecision> {
-    let theme = ColorfulTheme::default();
-    
-    let choices = vec![
-        "Accept (mark as verified)",
-        "Reject (discard draft)",
-        "Edit fields",
-        "Skip (review later)",
-        "View full details",
-    ];
-    
-    loop {
-        let selection = Select::with_theme(&theme)
-            .with_prompt("What would you like to do with this draft?")
-            .items(&choices)
-            .default(0)
-            .interact()?;
-        
-        match selection {
-            0 => {
-                // Accept
-                if Confirm::with_theme(&theme)
-                    .with_prompt("Are you sure you want to accept this draft as a verified incident?")
-                    .default(true)
-                    .interact()?
-                {
-                    return Ok(ReviewDecision::Accept(convert_draft_to_incident(draft)));
-                }
-            }
-            1 => {
-                // Reject
-                let reason = Input::with_theme(&theme)
-                    .with_prompt("Reason for rejection")
-                    .default("Insufficient evidence".to_string())
-                    .interact()?;
-                
-                if Confirm::with_theme(&theme)
-                    .with_prompt(&format!("Reject draft with reason: '{}'?", reason))
-                    .default(true)
-                    .interact()?
-                {
-                    return Ok(ReviewDecision::Reject(reason));
-                }
-            }
-            2 => {
-                // Edit
-                let edited = edit_draft_interactively(draft).await?;
-                return Ok(ReviewDecision::Edit(edited));
-            }
-            3 => {
-                // Skip
-                return Ok(ReviewDecision::Skip);
-            }
-            4 => {
-                // View full details
-                println!("\n--- Full Draft Details ---");
-                println!("{:#?}", draft);
-                println!("--- End Details ---\n");
-                continue;
-            }
-            _ => unreachable!(),
+    if args.auto_accept && args.auto_reject {
+        anyhow::bail!("Cannot specify both --auto-accept and --auto-reject");
+    }
+
+    if !args.auto_accept && !args.auto_reject {
+        println!("\nBatch mode requires --auto-accept or --auto-reject flag.");
+        println!("Use interactive mode (without --batch) for manual review.");
+        return Ok(());
+    }
+
+    let action = if args.auto_accept { "accept" } else { "reject" };
+    println!("\nBatch mode: {} {} incident(s)", action, incidents.len());
+
+    let mut processed = 0usize;
+    let mut failed = 0usize;
+
+    for incident in &incidents {
+        let result = if args.auto_accept {
+            accept_incident(db, incident.id).await
+        } else {
+            reject_incident(db, incident.id).await
+        };
+
+        if let Err(e) = result {
+            warn!("Failed to {} incident {}: {}", action, incident.id, e);
+            failed += 1;
+        } else {
+            processed += 1;
         }
     }
+
+    println!("\n  Processed: {}", processed);
+    println!("  Failed:    {}", failed);
+
+    Ok(())
 }
 
-/// Batch review (non-interactive)
-async fn batch_review_draft(draft: &IncidentDraft, options: &ReviewOptions) -> Result<ReviewDecision> {
-    // Apply review rules
-    if let Some(min_confidence) = options.min_confidence {
-        if draft.confidence < min_confidence {
-            return Ok(ReviewDecision::Reject(format!(
-                "Confidence score {:.1}% below minimum {:.1}%",
-                draft.confidence * 100.0,
-                min_confidence * 100.0
-            )));
+/// Main entry point for the review command
+pub async fn run(args: ReviewArgs) -> Result<()> {
+    info!("Starting incident review...");
+
+    let db = get_db().await?;
+
+    if args.batch {
+        run_batch(&db, &args).await
+    } else {
+        run_interactive(&db, &args).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+
+    fn create_test_incident() -> IncidentModel {
+        IncidentModel {
+            id: Uuid::new_v4(),
+            org_name: "Test Bank".to_string(),
+            org_sector: "BANKING".to_string(),
+            incident_date: chrono::NaiveDate::from_ymd_opt(2024, 1, 15).unwrap().into(),
+            disclosure_date: chrono::NaiveDate::from_ymd_opt(2024, 2, 1).unwrap().into(),
+            attack_type: "RANSOMWARE".to_string(),
+            data_categories: serde_json::json!(["PII", "Credentials"]),
+            record_count_estimate: Some(10000),
+            financial_impact_idr: Some(500000000),
+            actor_alias: Some("GroupX".to_string()),
+            actor_group: Some("APT-1".to_string()),
+            source_url: "https://example.com/incident/1".to_string(),
+            source_type: "MEDIA".to_string(),
+            verified: false,
+            notes: Some("Initial report".to_string()),
+            created_at: Utc::now().into(),
+            updated_at: Utc::now().into(),
         }
     }
-    
-    // Check for required fields
-    if draft.org_name.trim().is_empty() {
-        return Ok(ReviewDecision::Reject("Missing organization name".to_string()));
-    }
-    
-    if draft.source_url.trim().is_empty() {
-        return Ok(ReviewDecision::Reject("Missing source URL".to_string()));
-    }
-    
-    // Auto-accept high-confidence drafts
-    if draft.confidence >= 0.9 {
-        println!("Auto-accepting high-confidence draft ({:.1}%)", draft.confidence * 100.0);
-        return Ok(ReviewDecision::Accept(convert_draft_to_incident(draft)));
-    }
-    
-    // Default to accept for batch mode
-    Ok(ReviewDecision::Accept(convert_draft_to_incident(draft)))
-}
 
-/// Interactive editing of draft fields
-async fn edit_draft_interactively(draft: &IncidentDraft) -> Result<CreateIncident> {
-    let theme = ColorfulTheme::default();
-    
-    println!("Editing draft fields. Press Enter to keep current value.");
-    
-    let org_name: String = Input::with_theme(&theme)
-        .with_prompt("Organization Name")
-        .default(draft.org_name.clone())
-        .interact()?;
-    
-    let org_sector: String = Input::with_theme(&theme)
-        .with_prompt("Organization Sector")
-        .default(draft.org_sector.clone().unwrap_or_else(|| "UNKNOWN".to_string()))
-        .interact()?;
-    
-    let attack_type: String = Input::with_theme(&theme)
-        .with_prompt("Attack Type")
-        .default(draft.attack_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()))
-        .interact()?;
-    
-    let notes: String = Input::with_theme(&theme)
-        .with_prompt("Notes")
-        .default(draft.notes.clone().unwrap_or_default())
-        .interact()?;
-    
-    // Convert to CreateIncident
-    let incident = CreateIncident {
-        org_name,
-        org_sector,
-        incident_date: draft.incident_date.unwrap_or(draft.disclosure_date).into(),
-        disclosure_date: draft.disclosure_date.into(),
-        attack_type,
-        data_categories: draft.data_categories.clone(),
-        record_count_estimate: draft.record_count_estimate,
-        financial_impact_idr: draft.financial_impact_idr,
-        actor_alias: draft.actor_alias.clone(),
-        actor_group: draft.actor_group.clone(),
-        source_url: draft.source_url.clone(),
-        source_type: draft.source_type.clone(),
-        notes: if notes.is_empty() { None } else { Some(notes) },
-    };
-    
-    Ok(incident)
-}
-
-/// Convert IncidentDraft to CreateIncident for database insertion
-fn convert_draft_to_incident(draft: &IncidentDraft) -> CreateIncident {
-    CreateIncident {
-        org_name: draft.org_name.clone(),
-        org_sector: draft.org_sector.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
-        incident_date: draft.incident_date.unwrap_or(draft.disclosure_date).into(),
-        disclosure_date: draft.disclosure_date.into(),
-        attack_type: draft.attack_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
-        data_categories: draft.data_categories.clone(),
-        record_count_estimate: draft.record_count_estimate,
-        financial_impact_idr: draft.financial_impact_idr,
-        actor_alias: draft.actor_alias.clone(),
-        actor_group: draft.actor_group.clone(),
-        source_url: draft.source_url.clone(),
-        source_type: draft.source_type.clone(),
-        notes: draft.notes.clone(),
+    #[test]
+    fn test_review_args_default() {
+        let args = ReviewArgs::default();
+        assert!(!args.batch);
+        assert!(!args.auto_accept);
+        assert!(!args.auto_reject);
+        assert!(args.limit.is_none());
+        assert!(args.sector.is_none());
+        assert!(args.attack_type.is_none());
+        assert!(args.source_type.is_none());
     }
-}
 
-/// Batch review mode for historical backfill
-pub async fn batch_review_all(options: ReviewOptions) -> Result<()> {
-    println!("Starting batch review of all incident drafts...");
-    
-    let review_options = ReviewOptions {
-        batch: true,
-        ..options
-    };
-    
-    run(review_options).await
+    #[test]
+    fn test_review_args_custom() {
+        let args = ReviewArgs {
+            batch: true,
+            auto_accept: true,
+            auto_reject: false,
+            limit: Some(10),
+            sector: Some("BANKING".to_string()),
+            attack_type: Some("RANSOMWARE".to_string()),
+            source_type: Some("MEDIA".to_string()),
+        };
+        assert!(args.batch);
+        assert!(args.auto_accept);
+        assert_eq!(args.limit, Some(10));
+        assert_eq!(args.sector, Some("BANKING".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_display_incident_output() {
+        let incident = create_test_incident();
+        // display_incident prints to stdout, so we just verify it doesn't panic
+        display_incident(&incident, 0, 1);
+    }
+
+    #[tokio::test]
+    async fn test_display_actions_output() {
+        // display_actions prints to stdout, verify it doesn't panic
+        display_actions();
+    }
 }
