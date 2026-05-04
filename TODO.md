@@ -194,7 +194,7 @@ Patches do NOT change the schema, add new endpoints, or add new data sources. Th
 
 **Review accountability & audit trail (per REVIEW_SKILLS.md 2.5, 2.2):**
 
-- [ ] Schema addition: `review_audit_log` table with columns:
+- [x] Schema addition: `review_audit_log` table with columns:
   - `id` (UUID primary key)
   - `incident_id` (FK to incidents)
   - `reviewer_id` (user/agent identifier — string, e.g., CLI username or agent name)
@@ -204,13 +204,13 @@ Patches do NOT change the schema, add new endpoints, or add new data sources. Th
   - `confidence_score` (float 0.0–1.0 — reviewer's confidence in the decision)
   - `prior_status` (snapshot of record state before change — JSON)
   - `post_status` (snapshot of record state after change — JSON)
-- [ ] CLI enhancement: prompt reviewer for `--reviewer-id` on first invocation (cached in `.env.local` or config)
-- [ ] CLI enhancement: on accept/reject/edit, prompt for optional `--justification` text (e.g., "Source verified against original report", "Duplicate of incident #123")
-- [ ] CLI enhancement: on accept, prompt for `--confidence` (low/medium/high) or exact float 0.0–1.0. Default to medium (0.5)
-- [ ] Rejection must provide a justification or require `--force` flag; editing must document what changed
-- [ ] Batch mode (`--auto-accept`) requires `--justification "Batch: <reason>"` to be explicit; log all auto-actions to audit trail
-- [ ] `isi review` command enhancement: `--audit-trail <incident_id>` flag to show full review history for an incident
-- [ ] Documentation: extend `docs/review-discipline.md` explaining the audit trail fields and interpretation
+- [x] CLI enhancement: prompt reviewer for `--reviewer-id` on first invocation (cached in `.env.local` or config)
+- [x] CLI enhancement: on accept/reject/edit, prompt for optional `--justification` text (e.g., "Source verified against original report", "Duplicate of incident #123")
+- [x] CLI enhancement: on accept, prompt for `--confidence` (low/medium/high) or exact float 0.0–1.0. Default to medium (0.5)
+- [x] Rejection must provide a justification or require `--force` flag; editing must document what changed
+- [x] Batch mode (`--auto-accept`) requires `--justification "Batch: <reason>"` to be explicit; log all auto-actions to audit trail
+- [x] `isi review` command enhancement: `--audit-trail <incident_id>` flag to show full review history for an incident
+- [x] Documentation: extend `docs/review-discipline.md` explaining the audit trail fields and interpretation
 
 **Re-review & escalation (per REVIEW_SKILLS.md section 3, step 8):**
 

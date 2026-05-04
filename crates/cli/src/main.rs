@@ -5,6 +5,8 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use uuid::Uuid;
+use uuid::Uuid;
 
 mod commands;
 
@@ -78,6 +80,20 @@ enum Commands {
         attack_type: Option<String>,
         #[arg(long, help = "Filter by source type")]
         source_type: Option<String>,
+        #[arg(long, help = "Reviewer identifier (cached)")]
+        reviewer_id: Option<String>,
+        #[arg(long, help = "Justification for batch actions")]
+        justification: Option<String>,
+        #[arg(long, help = "Confidence score (0.0-1.0) for batch actions")]
+        confidence: Option<f32>,
+        #[arg(long, help = "Force reject without justification")]
+        force: bool,
+        #[arg(long, help = "Dry run mode – no DB changes")]
+        dry_run: bool,
+        #[arg(long, help = "Maximum batch size (default 50)")]
+        max_batch_size: Option<usize>,
+        #[arg(long, help = "Show audit trail for incident ID")]
+        audit_trail: Option<Uuid>,
     },
 }
 
@@ -133,6 +149,13 @@ async fn main() -> Result<()> {
             sector,
             attack_type,
             source_type,
+            reviewer_id,
+            justification,
+            confidence,
+            force,
+            dry_run,
+            max_batch_size,
+            audit_trail,
         } => {
             let args = commands::review::ReviewArgs {
                 batch,
@@ -142,6 +165,13 @@ async fn main() -> Result<()> {
                 sector,
                 attack_type,
                 source_type,
+                reviewer_id,
+                justification,
+                confidence,
+                force,
+                dry_run,
+                max_batch_size,
+                audit_trail,
             };
             commands::review::run(args).await?;
         }
