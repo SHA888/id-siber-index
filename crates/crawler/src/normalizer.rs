@@ -637,7 +637,7 @@ mod tests {
         assert_eq!(date.day(), 8);
         assert!(conf >= 0.85);
 
-        let (date, conf) = normalizer.parse_date("1 Januari 2023").unwrap();
+        let (date, _) = normalizer.parse_date("1 Januari 2023").unwrap();
         assert_eq!(date.year(), 2023);
         assert_eq!(date.month(), 1);
         assert_eq!(date.day(), 1);

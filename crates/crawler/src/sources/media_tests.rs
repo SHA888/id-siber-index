@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use crate::sources::CrawlerSource;
-    use crate::sources::media::{MediaCrawler, MediaItem, MediaKeywordMatcher, MediaOutlet};
+    use crate::sources::media::{MediaCrawler, MediaKeywordMatcher, MediaOutlet};
 
     #[test]
     fn test_media_crawler_creation() {
@@ -211,7 +211,6 @@ mod outlet_specific_tests {
 
 #[cfg(test)]
 mod deduplication_tests {
-    use crate::extractors::ExtractionResult;
     use crate::sources::media::{MediaItem, MediaOutlet};
 
     #[test]
@@ -489,7 +488,6 @@ mod performance_tests {
 
 #[cfg(test)]
 mod source_type_tests {
-    use crate::extractors::ExtractionResult;
     use crate::sources::media::{MediaItem, MediaOutlet};
 
     #[test]
@@ -675,12 +673,12 @@ mod outlet_coverage_tests {
 
 #[cfg(test)]
 mod boundary_tests {
-    use crate::sources::media::{MediaCrawler, MediaItem, MediaOutlet};
+    use crate::sources::media::MediaCrawler;
 
     #[test]
     fn test_max_items_per_outlet() {
         // Create a crawler and verify max items limit is enforced
-        let crawler = MediaCrawler::new();
+        let _crawler = MediaCrawler::new();
 
         // The max limit should be 50
         assert_eq!(crate::sources::media::MAX_ITEMS_PER_OUTLET, 50);
@@ -861,7 +859,6 @@ mod formatting_tests {
 
 #[cfg(test)]
 mod consistency_tests {
-    use crate::extractors::ExtractionResult;
     use crate::sources::media::{MediaCrawler, MediaItem, MediaOutlet};
 
     #[test]
