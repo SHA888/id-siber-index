@@ -6,7 +6,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use uuid::Uuid;
-use uuid::Uuid;
 
 mod commands;
 
@@ -94,6 +93,16 @@ enum Commands {
         max_batch_size: Option<usize>,
         #[arg(long, help = "Show audit trail for incident ID")]
         audit_trail: Option<Uuid>,
+        #[arg(long, help = "Show incidents in review queue")]
+        show_queue: bool,
+        #[arg(long, value_name = "STATUS", help = "Filter queue by status")]
+        queue_status: Option<String>,
+        #[arg(long, value_name = "INCIDENT_ID", help = "Escalate incident to human review")]
+        escalate: Option<Uuid>,
+        #[arg(long, value_name = "TEXT", help = "Reason for escalation")]
+        reason: Option<String>,
+        #[arg(long, help = "Show review statistics dashboard")]
+        show_stats: bool,
     },
 }
 
@@ -156,6 +165,11 @@ async fn main() -> Result<()> {
             dry_run,
             max_batch_size,
             audit_trail,
+            show_queue,
+            queue_status,
+            escalate,
+            reason,
+            show_stats,
         } => {
             let args = commands::review::ReviewArgs {
                 batch,
@@ -172,6 +186,11 @@ async fn main() -> Result<()> {
                 dry_run,
                 max_batch_size,
                 audit_trail,
+                show_queue,
+                queue_status,
+                escalate,
+                escalation_reason: reason,
+                show_stats,
             };
             commands::review::run(args).await?;
         }

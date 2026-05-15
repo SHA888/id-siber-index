@@ -6,7 +6,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "review_audit_log")]
 pub struct Model {
     #[sea_orm(primary_key)]
@@ -46,6 +46,7 @@ pub enum ReviewAction {
     Rejected,
     Edited,
     Skipped,
+    Escalated,
 }
 
 impl ReviewAction {
@@ -55,6 +56,7 @@ impl ReviewAction {
             ReviewAction::Rejected => "REJECTED",
             ReviewAction::Edited => "EDITED",
             ReviewAction::Skipped => "SKIPPED",
+            ReviewAction::Escalated => "ESCALATED",
         }
     }
 }
@@ -74,6 +76,7 @@ impl std::str::FromStr for ReviewAction {
             "REJECTED" => Ok(ReviewAction::Rejected),
             "EDITED" => Ok(ReviewAction::Edited),
             "SKIPPED" => Ok(ReviewAction::Skipped),
+            "ESCALATED" => Ok(ReviewAction::Escalated),
             _ => Err(format!("Unknown review action: {}", s)),
         }
     }

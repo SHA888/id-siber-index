@@ -8,7 +8,7 @@
 
 use anyhow::{bail, Context, Result};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Database, DatabaseConnection, EntityTrait, QueryFilter, Set,
+    ActiveModelTrait, ColumnTrait, Database, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set,
 };
 use serde_json::json;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -17,6 +17,7 @@ use uuid::Uuid;
 
 use schema::entities::incident::{self, Entity as IncidentEntity, Model as IncidentModel};
 use schema::entities::review_audit_log::{self, Entity as ReviewAuditLogEntity, ReviewAction};
+use schema::entities::review_queue::{self, Entity as ReviewQueueEntity};
 
 /// Review command arguments
 #[derive(Debug, Clone, Default)]
@@ -49,6 +50,16 @@ pub struct ReviewArgs {
     pub max_batch_size: Option<usize>,
     /// Query audit trail for a specific incident (UUID)
     pub audit_trail: Option<Uuid>,
+    /// Show incidents in review queue
+    pub show_queue: bool,
+    /// Filter queue by status
+    pub queue_status: Option<String>,
+    /// Escalate an incident to human review
+    pub escalate: Option<Uuid>,
+    /// Reason for escalation
+    pub escalation_reason: Option<String>,
+    /// Show review statistics dashboard
+    pub show_stats: bool,
 }
 
 /// Review context holds the reviewer identity for the session
@@ -357,6 +368,107 @@ async fn log_review_action(
     Ok(())
 }
 
+/// Auto-escalate an incident to human review (internal trigger)
+async fn auto_escalate(
+    db: &DatabaseConnection,
+    ctx: &ReviewContext,
+    incident_id: Uuid,
+    reason: &str,
+) -> Result<()> {
+    if ctx.dry_run {
+        println!("  [DRY RUN] Would auto-escalate incident {} ({})", incident_id, reason);
+        return Ok(());
+    }
+
+    let now = chrono::Utc::now().into();
+
+    let queue_model = ReviewQueueEntity::find()
+        .filter(review_queue::Column::IncidentId.eq(incident_id))
+        .one(db)
+        .await
+        .context("Failed to query review queue")?;
+
+    if let Some(existing) = queue_model {
+        let mut active_model: review_queue::ActiveModel = existing.into();
+        active_model.status = Set("ESCALATED".to_string());
+        active_model.escalated_by = Set(Some(ctx.reviewer_id.clone()));
+        active_model.escalation_reason = Set(Some(reason.to_string()));
+        active_model.escalated_at = Set(Some(now));
+        active_model.updated_at = Set(now);
+
+        active_model
+            .update(db)
+            .await
+            .context("Failed to update review queue")?;
+    } else {
+        let new_model = review_queue::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            incident_id: Set(incident_id),
+            status: Set("ESCALATED".to_string()),
+            reviewer_id: Set(None),
+            escalated_by: Set(Some(ctx.reviewer_id.clone())),
+            escalation_reason: Set(Some(reason.to_string())),
+            escalated_at: Set(Some(now)),
+            created_at: Set(now),
+            updated_at: Set(now),
+        };
+
+        new_model
+            .insert(db)
+            .await
+            .context("Failed to insert review queue")?;
+    }
+
+    log_review_action(
+        db,
+        ctx,
+        incident_id,
+        ReviewAction::Escalated,
+        Some(format!("Auto-escalated: {}", reason)),
+        None,
+        None,
+        None,
+    )
+    .await?;
+
+    println!("  ⚠ Incident auto-escalated: {}", reason);
+    Ok(())
+}
+
+/// Check for conflicting reviewer decisions (different reviewer with opposite action)
+async fn check_conflicting_reviews(
+    db: &DatabaseConnection,
+    incident_id: Uuid,
+    reviewer_id: &str,
+    action: &str,
+) -> Result<bool> {
+    use sea_orm::prelude::*;
+
+    let logs = review_audit_log::Entity::find()
+        .filter(review_audit_log::Column::IncidentId.eq(incident_id))
+        .filter(review_audit_log::Column::Action.ne("ESCALATED"))
+        .filter(review_audit_log::Column::Action.ne("SKIPPED"))
+        .order_by_desc(review_audit_log::Column::ReviewedAt)
+        .all(db)
+        .await
+        .context("Failed to query review audit log")?;
+
+    for log in logs {
+        if log.reviewer_id != reviewer_id {
+            let opposite_action = match action {
+                "ACCEPTED" => "REJECTED",
+                "REJECTED" => "ACCEPTED",
+                _ => "",
+            };
+            if !opposite_action.is_empty() && log.action == opposite_action {
+                return Ok(true);
+            }
+        }
+    }
+
+    Ok(false)
+}
+
 /// Accept an incident (mark as verified)
 async fn accept_incident(
     db: &DatabaseConnection,
@@ -414,6 +526,30 @@ async fn accept_incident(
     .await?;
 
     println!("  ✓ Incident accepted and marked as verified");
+
+    // Auto-escalation triggers
+    if let Some(conf) = confidence {
+        if conf < 0.3 {
+            auto_escalate(
+                db,
+                ctx,
+                incident.id,
+                "confidence_score < 0.3 on acceptance",
+            )
+            .await?;
+        }
+    }
+
+    if check_conflicting_reviews(db, incident.id, &ctx.reviewer_id, "ACCEPTED").await? {
+        auto_escalate(
+            db,
+            ctx,
+            incident.id,
+            "conflicting reviewer decisions (accepted after prior rejection)",
+        )
+        .await?;
+    }
+
     Ok(())
 }
 
@@ -464,6 +600,18 @@ async fn reject_incident(
     .await?;
 
     println!("  ✗ Incident rejected and deleted");
+
+    // Auto-escalation trigger: conflicting reviewer decisions
+    if check_conflicting_reviews(db, incident.id, &ctx.reviewer_id, "REJECTED").await? {
+        auto_escalate(
+            db,
+            ctx,
+            incident.id,
+            "conflicting reviewer decisions (rejected after prior acceptance)",
+        )
+        .await?;
+    }
+
     Ok(())
 }
 
@@ -801,13 +949,239 @@ async fn run_audit_trail_query(db: &DatabaseConnection, incident_id: Uuid) -> Re
     Ok(())
 }
 
+/// Display review queue grouped by status
+async fn run_queue_display(db: &DatabaseConnection, args: &ReviewArgs) -> Result<()> {
+    let mut query = ReviewQueueEntity::find();
+
+    if let Some(status) = &args.queue_status {
+        query = query.filter(review_queue::Column::Status.eq(status.clone()));
+    }
+
+    let queue_items = query
+        .all(db)
+        .await
+        .context("Failed to query review queue")?;
+
+    if queue_items.is_empty() {
+        println!("\nNo incidents in review queue.");
+        return Ok(());
+    }
+
+    println!("\n{}", "═".repeat(80));
+    println!("  Review Queue Status");
+    println!("{}", "═".repeat(80));
+
+    // Group by status
+    let mut items_by_status: std::collections::BTreeMap<String, Vec<_>> =
+        std::collections::BTreeMap::new();
+
+    for item in queue_items {
+        items_by_status
+            .entry(item.status.clone())
+            .or_insert_with(Vec::new)
+            .push(item);
+    }
+
+    for (status, items) in items_by_status {
+        println!("\n  Status: {} ({})", status, items.len());
+        println!("  {}", "─".repeat(76));
+
+        for (idx, item) in items.iter().enumerate() {
+            if let Ok(incident) = IncidentEntity::find_by_id(item.incident_id)
+                .one(db)
+                .await
+            {
+                if let Some(inc) = incident {
+                    println!(
+                        "  {}: {} — {} ({})",
+                        idx + 1,
+                        inc.org_name,
+                        inc.attack_type,
+                        inc.org_sector
+                    );
+                    if let Some(reviewer) = &item.reviewer_id {
+                        println!("     Reviewer: {}", reviewer);
+                    }
+                    if let Some(reason) = &item.escalation_reason {
+                        println!("     Escalation: {}", reason);
+                    }
+                }
+            }
+        }
+    }
+
+    println!("\n{}", "═".repeat(80));
+    Ok(())
+}
+
+/// Escalate an incident to human review
+async fn run_escalate_incident(
+    db: &DatabaseConnection,
+    ctx: &ReviewContext,
+    incident_id: Uuid,
+    reason: Option<String>,
+) -> Result<()> {
+    // Ensure incident exists
+    let _incident = IncidentEntity::find_by_id(incident_id)
+        .one(db)
+        .await?
+        .context("Incident not found")?;
+
+    // Upsert into review_queue with ESCALATED status
+    let now = chrono::Utc::now().into();
+
+    let queue_model = ReviewQueueEntity::find()
+        .filter(review_queue::Column::IncidentId.eq(incident_id))
+        .one(db)
+        .await
+        .context("Failed to query review queue")?;
+
+    if let Some(existing) = queue_model {
+        let mut active_model: review_queue::ActiveModel = existing.into();
+        active_model.status = Set("ESCALATED".to_string());
+        active_model.escalated_by = Set(Some(ctx.reviewer_id.clone()));
+        active_model.escalation_reason = Set(reason.clone());
+        active_model.escalated_at = Set(Some(now));
+        active_model.updated_at = Set(now);
+
+        active_model
+            .update(db)
+            .await
+            .context("Failed to update review queue")?;
+    } else {
+        let new_model = review_queue::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            incident_id: Set(incident_id),
+            status: Set("ESCALATED".to_string()),
+            reviewer_id: Set(None),
+            escalated_by: Set(Some(ctx.reviewer_id.clone())),
+            escalation_reason: Set(reason.clone()),
+            escalated_at: Set(Some(now)),
+            created_at: Set(now),
+            updated_at: Set(now),
+        };
+
+        new_model
+            .insert(db)
+            .await
+            .context("Failed to insert review queue entry")?;
+    }
+
+    // Log escalation action
+    log_review_action(
+        db,
+        ctx,
+        incident_id,
+        ReviewAction::Escalated,
+        reason,
+        None,
+        None,
+        None,
+    )
+    .await?;
+
+    println!("  ✓ Incident {} escalated to human review", incident_id);
+    Ok(())
+}
+
+/// Show review statistics dashboard
+async fn run_stats_dashboard(db: &DatabaseConnection, _args: &ReviewArgs) -> Result<()> {
+    use sea_orm::prelude::*;
+
+    // Count review actions
+    let total_accepted: u64 = review_audit_log::Entity::find()
+        .filter(review_audit_log::Column::Action.eq("ACCEPTED"))
+        .count(db)
+        .await?;
+
+    let total_rejected: u64 = review_audit_log::Entity::find()
+        .filter(review_audit_log::Column::Action.eq("REJECTED"))
+        .count(db)
+        .await?;
+
+    let total_escalated: u64 = review_audit_log::Entity::find()
+        .filter(review_audit_log::Column::Action.eq("ESCALATED"))
+        .count(db)
+        .await?;
+
+    let total_edited: u64 = review_audit_log::Entity::find()
+        .filter(review_audit_log::Column::Action.eq("EDITED"))
+        .count(db)
+        .await?;
+
+    // Queue status counts
+    let pending: u64 = ReviewQueueEntity::find()
+        .filter(review_queue::Column::Status.eq("PENDING"))
+        .count(db)
+        .await?;
+
+    let in_review: u64 = ReviewQueueEntity::find()
+        .filter(review_queue::Column::Status.eq("IN_REVIEW"))
+        .count(db)
+        .await?;
+
+    let escalated: u64 = ReviewQueueEntity::find()
+        .filter(review_queue::Column::Status.eq("ESCALATED"))
+        .count(db)
+        .await?;
+
+    println!("\n{}", "═".repeat(70));
+    println!("  Review Statistics Dashboard");
+    println!("{}", "═".repeat(70));
+
+    println!("\n  Review Actions:");
+    println!("    Accepted:    {}", total_accepted);
+    println!("    Rejected:    {}", total_rejected);
+    println!("    Escalated:   {}", total_escalated);
+    println!("    Edited:      {}", total_edited);
+
+    let total_decisions = total_accepted + total_rejected + total_escalated;
+    if total_decisions > 0 {
+        let acceptance_rate = (total_accepted as f64 / total_decisions as f64) * 100.0;
+        let rejection_rate = (total_rejected as f64 / total_decisions as f64) * 100.0;
+        let escalation_rate = (total_escalated as f64 / total_decisions as f64) * 100.0;
+
+        println!("\n  Rates:");
+        println!("    Acceptance:  {:.1}%", acceptance_rate);
+        println!("    Rejection:   {:.1}%", rejection_rate);
+        println!("    Escalation:  {:.1}%", escalation_rate);
+        println!("    Edit Rate:   {}", total_edited);
+    }
+
+    println!("\n  Queue Status:");
+    println!("    Pending:     {}", pending);
+    println!("    In Review:   {}", in_review);
+    println!("    Escalated:   {}", escalated);
+
+    println!("\n{}", "═".repeat(70));
+    Ok(())
+}
+
 /// Main entry point for the review command
 pub async fn run(args: ReviewArgs) -> Result<()> {
     info!("Starting incident review...");
 
     let db = get_db().await?;
 
-    // Audit trail query mode takes precedence
+    // Special modes with higher precedence
+    if args.show_queue {
+        return run_queue_display(&db, &args).await;
+    }
+
+    if args.show_stats {
+        return run_stats_dashboard(&db, &args).await;
+    }
+
+    if let Some(incident_id) = args.escalate {
+        let reviewer_id = get_reviewer_id(args.reviewer_id.clone()).await?;
+        let ctx = ReviewContext {
+            reviewer_id,
+            dry_run: args.dry_run,
+        };
+        return run_escalate_incident(&db, &ctx, incident_id, args.escalation_reason).await;
+    }
+
+    // Audit trail query mode
     if let Some(incident_id) = args.audit_trail {
         return run_audit_trail_query(&db, incident_id).await;
     }
@@ -888,6 +1262,11 @@ mod tests {
             dry_run: true,
             max_batch_size: Some(50),
             audit_trail: None,
+            show_queue: false,
+            queue_status: None,
+            escalate: None,
+            escalation_reason: None,
+            show_stats: false,
         };
         assert!(args.batch);
         assert!(args.auto_accept);
@@ -926,6 +1305,7 @@ mod tests {
         assert_eq!(ReviewAction::Rejected.as_str(), "REJECTED");
         assert_eq!(ReviewAction::Edited.as_str(), "EDITED");
         assert_eq!(ReviewAction::Skipped.as_str(), "SKIPPED");
+        assert_eq!(ReviewAction::Escalated.as_str(), "ESCALATED");
 
         assert_eq!(
             "ACCEPTED".parse::<ReviewAction>().unwrap(),
@@ -934,6 +1314,10 @@ mod tests {
         assert_eq!(
             "REJECTED".parse::<ReviewAction>().unwrap(),
             ReviewAction::Rejected
+        );
+        assert_eq!(
+            "ESCALATED".parse::<ReviewAction>().unwrap(),
+            ReviewAction::Escalated
         );
         assert!("UNKNOWN".parse::<ReviewAction>().is_err());
     }

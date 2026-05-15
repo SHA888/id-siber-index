@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS review_audit_log (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     incident_id UUID NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
     reviewer_id VARCHAR(255) NOT NULL,
-    action VARCHAR(255) NOT NULL CHECK (action IN ('ACCEPTED', 'REJECTED', 'EDITED', 'SKIPPED')),
+    action VARCHAR(255) NOT NULL CHECK (action IN ('ACCEPTED', 'REJECTED', 'EDITED', 'SKIPPED', 'ESCALATED')),
     reviewed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     justification TEXT,
     confidence_score REAL CHECK (confidence_score >= 0.0 AND confidence_score <= 1.0),
