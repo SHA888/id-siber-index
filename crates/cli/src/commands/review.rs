@@ -1087,6 +1087,7 @@ async fn run_escalate_incident(
 /// Show review statistics dashboard
 async fn run_stats_dashboard(db: &DatabaseConnection, _args: &ReviewArgs) -> Result<()> {
     use sea_orm::prelude::*;
+    use std::collections::BTreeMap;
 
     // Count review actions
     let total_accepted: u64 = review_audit_log::Entity::find()
@@ -1125,6 +1126,30 @@ async fn run_stats_dashboard(db: &DatabaseConnection, _args: &ReviewArgs) -> Res
         .count(db)
         .await?;
 
+    // Get all completed reviews (accepted or rejected) with incident data for time-in-review calculation
+    let completed_reviews = review_audit_log::Entity::find()
+        .filter(review_audit_log::Column::Action.is_in(["ACCEPTED", "REJECTED"]))
+        .all(db)
+        .await
+        .context("Failed to fetch completed reviews")?;
+
+    // Calculate mean time-in-review per sector
+    let mut sector_times: BTreeMap<String, Vec<i64>> = BTreeMap::new();
+    for audit_log in completed_reviews {
+        let incident = IncidentEntity::find_by_id(audit_log.incident_id)
+            .one(db)
+            .await
+            .context("Failed to fetch incident")?;
+
+        if let Some(incident) = incident {
+            let duration_seconds = audit_log.reviewed_at.timestamp() - incident.created_at.timestamp();
+            sector_times
+                .entry(incident.org_sector.clone())
+                .or_insert_with(Vec::new)
+                .push(duration_seconds);
+        }
+    }
+
     println!("\n{}", "═".repeat(70));
     println!("  Review Statistics Dashboard");
     println!("{}", "═".repeat(70));
@@ -1136,22 +1161,39 @@ async fn run_stats_dashboard(db: &DatabaseConnection, _args: &ReviewArgs) -> Res
     println!("    Edited:      {}", total_edited);
 
     let total_decisions = total_accepted + total_rejected + total_escalated;
+    let total_with_edits = total_decisions + total_edited;
     if total_decisions > 0 {
         let acceptance_rate = (total_accepted as f64 / total_decisions as f64) * 100.0;
         let rejection_rate = (total_rejected as f64 / total_decisions as f64) * 100.0;
         let escalation_rate = (total_escalated as f64 / total_decisions as f64) * 100.0;
+        let edit_rate = if total_with_edits > 0 {
+            (total_edited as f64 / total_with_edits as f64) * 100.0
+        } else {
+            0.0
+        };
 
         println!("\n  Rates:");
         println!("    Acceptance:  {:.1}%", acceptance_rate);
         println!("    Rejection:   {:.1}%", rejection_rate);
         println!("    Escalation:  {:.1}%", escalation_rate);
-        println!("    Edit Rate:   {}", total_edited);
+        println!("    Edit Rate:   {:.1}%", edit_rate);
     }
 
     println!("\n  Queue Status:");
     println!("    Pending:     {}", pending);
     println!("    In Review:   {}", in_review);
     println!("    Escalated:   {}", escalated);
+
+    if !sector_times.is_empty() {
+        println!("\n  Mean Time-in-Review per Sector:");
+        for (sector, times) in sector_times.iter() {
+            if !times.is_empty() {
+                let avg_seconds = times.iter().sum::<i64>() as f64 / times.len() as f64;
+                let hours = avg_seconds / 3600.0;
+                println!("    {}:  {:.1}h", sector, hours);
+            }
+        }
+    }
 
     println!("\n{}", "═".repeat(70));
     Ok(())
