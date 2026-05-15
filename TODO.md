@@ -214,14 +214,14 @@ Patches do NOT change the schema, add new endpoints, or add new data sources. Th
 
 **Re-review & escalation (per REVIEW_SKILLS.md section 3, step 8):**
 
-- [ ] Schema addition: `review_queue` table with status enum (PENDING, IN_REVIEW, ACCEPTED, REJECTED, ESCALATED)
-- [ ] CLI enhancement: `isi review --queue` — show incidents in review queue by status
-- [ ] CLI enhancement: `isi review --escalate <incident_id> --reason <text>` — move incident to ESCALATED status for human reviewer
-- [ ] Escalation triggers (auto-flag for human review):
+- [x] Schema addition: `review_queue` table with status enum (PENDING, IN_REVIEW, ACCEPTED, REJECTED, ESCALATED)
+- [x] CLI enhancement: `isi review --queue` — show incidents in review queue by status
+- [x] CLI enhancement: `isi review --escalate <incident_id> --reason <text>` — move incident to ESCALATED status for human reviewer
+- [x] Escalation triggers (auto-flag for human review):
   - `confidence_score < 0.3` after edit
   - Second reviewer disagrees with first (different `reviewer_id`, contradictory decisions)
   - Batch-auto-accepted incident later flagged as incorrect (defect escape)
-- [ ] Dashboard: `isi review --stats` — acceptance rate, rejection rate, edit rate, escalation rate, mean time-in-review per sector
+- [x] Dashboard: `isi review --stats` — acceptance rate, rejection rate, edit rate, escalation rate, mean time-in-review per sector
 
 **Regression testing & metrics (per REVIEW_SKILLS.md section 6 test discipline, section 8 metrics):**
 

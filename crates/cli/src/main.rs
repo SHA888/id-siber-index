@@ -10,7 +10,7 @@ use uuid::Uuid;
 mod commands;
 
 #[derive(Parser)]
-#[command(name = "idsiber")]
+#[command(name = "isi")]
 #[command(about = "Command-line interface for id-siber-index")]
 #[command(version = env!("CARGO_PKG_VERSION"))]
 struct Cli {
