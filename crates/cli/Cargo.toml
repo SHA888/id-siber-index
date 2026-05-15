@@ -8,7 +8,7 @@ license.workspace = true
 description = "Command-line interface for id-siber-index"
 
 [[bin]]
-name = "idsiber"
+name = "isi"
 path = "src/main.rs"
 
 [dependencies]
