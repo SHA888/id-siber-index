@@ -21,7 +21,7 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute_unprepared(
                 r#"
-                CREATE INDEX IF NOT EXISTS idx_incidents_org_name_gin 
+                CREATE INDEX IF NOT EXISTS idx_incidents_org_name_gin
                 ON incidents USING gin(org_name gin_trgm_ops);
                 "#,
             )
@@ -31,7 +31,7 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute_unprepared(
                 r#"
-                CREATE INDEX IF NOT EXISTS idx_incidents_notes_gin 
+                CREATE INDEX IF NOT EXISTS idx_incidents_notes_gin
                 ON incidents USING gin(notes gin_trgm_ops);
                 "#,
             )
@@ -42,7 +42,7 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute_unprepared(
                 r#"
-                CREATE INDEX IF NOT EXISTS idx_incidents_sector 
+                CREATE INDEX IF NOT EXISTS idx_incidents_sector
                 ON incidents(org_sector);
                 "#,
             )
@@ -52,7 +52,7 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute_unprepared(
                 r#"
-                CREATE INDEX IF NOT EXISTS idx_incidents_updated 
+                CREATE INDEX IF NOT EXISTS idx_incidents_updated
                 ON incidents(updated_at);
                 "#,
             )
@@ -77,7 +77,7 @@ impl MigrationTrait for Migration {
 
         // Note: We don't drop the pg_trgm extension as it might be used by other tables
         // and dropping extensions requires special privileges
-        
+
         Ok(())
     }
 }

@@ -97,7 +97,11 @@ enum Commands {
         show_queue: bool,
         #[arg(long, value_name = "STATUS", help = "Filter queue by status")]
         queue_status: Option<String>,
-        #[arg(long, value_name = "INCIDENT_ID", help = "Escalate incident to human review")]
+        #[arg(
+            long,
+            value_name = "INCIDENT_ID",
+            help = "Escalate incident to human review"
+        )]
         escalate: Option<Uuid>,
         #[arg(long, value_name = "TEXT", help = "Reason for escalation")]
         reason: Option<String>,

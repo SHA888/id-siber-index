@@ -6,9 +6,10 @@
 //! Every review action is logged to `review_audit_log` per REVIEW_SKILLS.md
 //! principles 2.2 (citation) and 2.5 (signing).
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Database, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set,
+    ActiveModelTrait, ColumnTrait, Database, DatabaseConnection, EntityTrait, QueryFilter,
+    QueryOrder, Set,
 };
 use serde_json::json;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -330,6 +331,7 @@ fn snapshot_incident(incident: &IncidentModel) -> serde_json::Value {
 }
 
 /// Log a review action to the audit trail
+#[allow(clippy::too_many_arguments)]
 async fn log_review_action(
     db: &DatabaseConnection,
     ctx: &ReviewContext,
@@ -356,8 +358,8 @@ async fn log_review_action(
         reviewed_at: Set(chrono::Utc::now().into()),
         justification: Set(justification),
         confidence_score: Set(confidence_score),
-        prior_status: Set(prior_status.map(Into::into)),
-        post_status: Set(post_status.map(Into::into)),
+        prior_status: Set(prior_status),
+        post_status: Set(post_status),
     };
 
     active_model
@@ -376,7 +378,10 @@ async fn auto_escalate(
     reason: &str,
 ) -> Result<()> {
     if ctx.dry_run {
-        println!("  [DRY RUN] Would auto-escalate incident {} ({})", incident_id, reason);
+        println!(
+            "  [DRY RUN] Would auto-escalate incident {} ({})",
+            incident_id, reason
+        );
         return Ok(());
     }
 
@@ -528,16 +533,8 @@ async fn accept_incident(
     println!("  ✓ Incident accepted and marked as verified");
 
     // Auto-escalation triggers
-    if let Some(conf) = confidence {
-        if conf < 0.3 {
-            auto_escalate(
-                db,
-                ctx,
-                incident.id,
-                "confidence_score < 0.3 on acceptance",
-            )
-            .await?;
-        }
+    if confidence.is_some_and(|c| c < 0.3) {
+        auto_escalate(db, ctx, incident.id, "confidence_score < 0.3 on acceptance").await?;
     }
 
     if check_conflicting_reviews(db, incident.id, &ctx.reviewer_id, "ACCEPTED").await? {
@@ -563,10 +560,7 @@ async fn reject_incident(
     let prior = snapshot_incident(incident);
 
     if ctx.dry_run {
-        println!(
-            "  [DRY RUN] Would reject (delete) incident {}",
-            incident.id
-        );
+        println!("  [DRY RUN] Would reject (delete) incident {}", incident.id);
         log_review_action(
             db,
             ctx,
@@ -746,14 +740,9 @@ async fn run_interactive(
                 let confidence = prompt_confidence().await?;
                 let justification = prompt_justification(false).await?;
 
-                if let Err(e) = accept_incident(
-                    db,
-                    ctx,
-                    incident,
-                    justification.clone(),
-                    Some(confidence),
-                )
-                .await
+                if let Err(e) =
+                    accept_incident(db, ctx, incident, justification.clone(), Some(confidence))
+                        .await
                 {
                     warn!("Failed to accept incident {}: {}", incident.id, e);
                     println!("  Error accepting incident: {}", e);
@@ -859,11 +848,7 @@ async fn run_interactive(
 }
 
 /// Run batch review mode
-async fn run_batch(
-    db: &DatabaseConnection,
-    ctx: &ReviewContext,
-    args: &ReviewArgs,
-) -> Result<()> {
+async fn run_batch(db: &DatabaseConnection, ctx: &ReviewContext, args: &ReviewArgs) -> Result<()> {
     let incidents = fetch_unverified(db, args).await?;
 
     if incidents.is_empty() {
@@ -904,23 +889,13 @@ async fn run_batch(
 
     for incident in &incidents {
         let result = if args.auto_accept {
-            accept_incident(
-                db,
-                ctx,
-                incident,
-                justification.clone(),
-                confidence,
-            )
-            .await
+            accept_incident(db, ctx, incident, justification.clone(), confidence).await
         } else {
             reject_incident(db, ctx, incident, justification.clone()).await
         };
 
         if let Err(e) = result {
-            warn!(
-                "Failed to {} incident {}: {}",
-                action, incident.id, e
-            );
+            warn!("Failed to {} incident {}: {}", action, incident.id, e);
             failed += 1;
         } else {
             processed += 1;
@@ -987,24 +962,19 @@ async fn run_queue_display(db: &DatabaseConnection, args: &ReviewArgs) -> Result
         println!("  {}", "─".repeat(76));
 
         for (idx, item) in items.iter().enumerate() {
-            if let Ok(incident) = IncidentEntity::find_by_id(item.incident_id)
-                .one(db)
-                .await
-            {
-                if let Some(inc) = incident {
-                    println!(
-                        "  {}: {} — {} ({})",
-                        idx + 1,
-                        inc.org_name,
-                        inc.attack_type,
-                        inc.org_sector
-                    );
-                    if let Some(reviewer) = &item.reviewer_id {
-                        println!("     Reviewer: {}", reviewer);
-                    }
-                    if let Some(reason) = &item.escalation_reason {
-                        println!("     Escalation: {}", reason);
-                    }
+            if let Ok(Some(inc)) = IncidentEntity::find_by_id(item.incident_id).one(db).await {
+                println!(
+                    "  {}: {} — {} ({})",
+                    idx + 1,
+                    inc.org_name,
+                    inc.attack_type,
+                    inc.org_sector
+                );
+                if let Some(reviewer) = &item.reviewer_id {
+                    println!("     Reviewer: {}", reviewer);
+                }
+                if let Some(reason) = &item.escalation_reason {
+                    println!("     Escalation: {}", reason);
                 }
             }
         }
@@ -1142,10 +1112,11 @@ async fn run_stats_dashboard(db: &DatabaseConnection, _args: &ReviewArgs) -> Res
             .context("Failed to fetch incident")?;
 
         if let Some(incident) = incident {
-            let duration_seconds = audit_log.reviewed_at.timestamp() - incident.created_at.timestamp();
+            let duration_seconds =
+                audit_log.reviewed_at.timestamp() - incident.created_at.timestamp();
             sector_times
                 .entry(incident.org_sector.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(duration_seconds);
         }
     }
