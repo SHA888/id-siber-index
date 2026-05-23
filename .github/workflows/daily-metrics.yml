@@ -1,0 +1,77 @@
+name: Daily Metrics Report
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 2am UTC every day
+  workflow_dispatch:     # Allow manual trigger
+
+env:
+  RUST_LOG: info
+  CARGO_TERM_COLOR: always
+
+jobs:
+  metrics:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: idsiber_metrics
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..30}; do
+            pg_isready -h localhost -p 5432 -U postgres && break
+            sleep 1
+          done
+
+      - name: Run database migrations
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/idsiber_metrics
+        run: cargo run --bin migrate
+
+      - name: Run metrics aggregation
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/idsiber_metrics
+        run: cargo run --bin cli -- metrics
+
+      - name: Generate metrics report
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/idsiber_metrics
+        run: cargo run --bin gen-metrics-report
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push metrics report
+        run: |
+          if git diff --quiet METRICS.md 2>/dev/null; then
+            echo "No changes to METRICS.md; skipping commit"
+          else
+            git add METRICS.md
+            git commit -m "metrics: daily aggregation $(date -u +%Y-%m-%d)"
+            git push origin "${{ github.ref }}"
+          fi
