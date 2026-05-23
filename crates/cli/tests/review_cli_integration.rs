@@ -728,3 +728,250 @@ async fn test_batch_mode_conflicting_flags() {
         );
     }
 }
+
+#[tokio::test]
+#[ignore] // Requires test database setup and schema with review_audit_log
+async fn test_audit_trail_prior_status() {
+    let db = get_test_db().await;
+
+    let fixture_id =
+        Uuid::parse_str("77777777-7777-7777-7777-777777777777").expect("Invalid fixture UUID");
+
+    // Fetch incident and capture initial state
+    let incident = IncidentEntity::find_by_id(fixture_id)
+        .one(&db)
+        .await
+        .expect("Failed to query incident")
+        .expect("Fixture incident not found");
+
+    let prior_status = serde_json::json!({
+        "org_name": incident.org_name,
+        "org_sector": incident.org_sector,
+        "verified": incident.verified,
+    });
+
+    // Perform action (accept)
+    let mut active_model: IncidentActiveModel = incident.clone().into();
+    active_model.verified = Set(true);
+    active_model.updated_at = Set(chrono::Utc::now().into());
+
+    active_model
+        .update(&db)
+        .await
+        .expect("Failed to update incident");
+
+    // Capture post-action state
+    let incident_after = IncidentEntity::find_by_id(fixture_id)
+        .one(&db)
+        .await
+        .expect("Failed to re-query incident")
+        .expect("Incident not found after update");
+
+    let post_status = serde_json::json!({
+        "org_name": incident_after.org_name,
+        "org_sector": incident_after.org_sector,
+        "verified": incident_after.verified,
+    });
+
+    // Log the action with both snapshots
+    let audit_entry = review_audit_log::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        incident_id: Set(fixture_id),
+        reviewer_id: Set("test-snapshot".to_string()),
+        action: Set(ReviewAction::Accepted.to_string()),
+        reviewed_at: Set(chrono::Utc::now().into()),
+        justification: Set(Some("Test with snapshots".to_string())),
+        confidence_score: Set(Some(0.75)),
+        prior_status: Set(Some(prior_status.clone())),
+        post_status: Set(Some(post_status.clone())),
+    };
+
+    audit_entry
+        .insert(&db)
+        .await
+        .expect("Failed to log audit entry with snapshots");
+
+    // Verify the snapshots were stored correctly
+    let audit_logs = ReviewAuditLogEntity::find()
+        .filter(review_audit_log::Column::IncidentId.eq(fixture_id))
+        .filter(review_audit_log::Column::ReviewerId.eq("test-snapshot"))
+        .all(&db)
+        .await
+        .expect("Failed to query audit logs");
+
+    assert!(!audit_logs.is_empty(), "Audit entry should be created");
+    let entry = &audit_logs[0];
+
+    // Verify prior status was captured
+    assert!(
+        entry.prior_status.is_some(),
+        "Prior status should be captured"
+    );
+    let prior = entry.prior_status.as_ref().unwrap();
+    assert_eq!(
+        prior["org_name"], incident.org_name,
+        "Prior org_name should match"
+    );
+    assert_eq!(prior["verified"], false, "Prior verified should be false");
+
+    // Verify post status was captured
+    assert!(
+        entry.post_status.is_some(),
+        "Post status should be captured"
+    );
+    let post = entry.post_status.as_ref().unwrap();
+    assert_eq!(
+        post["org_name"], incident_after.org_name,
+        "Post org_name should match"
+    );
+    assert_eq!(post["verified"], true, "Post verified should be true");
+}
+
+#[tokio::test]
+#[ignore] // Requires test database setup and schema with review_audit_log
+async fn test_audit_trail_edit_snapshots() {
+    let db = get_test_db().await;
+
+    let fixture_id =
+        Uuid::parse_str("88888888-8888-8888-8888-888888888888").expect("Invalid fixture UUID");
+
+    // Fetch incident
+    let incident = IncidentEntity::find_by_id(fixture_id)
+        .one(&db)
+        .await
+        .expect("Failed to query incident")
+        .expect("Fixture incident not found");
+
+    let prior_status = serde_json::json!({
+        "org_sector": incident.org_sector.clone(),
+    });
+
+    // Edit the incident (change sector)
+    let new_sector = format!("{}-Updated", incident.org_sector);
+    let mut active_model: IncidentActiveModel = incident.clone().into();
+    active_model.org_sector = Set(new_sector.clone());
+    active_model.updated_at = Set(chrono::Utc::now().into());
+
+    active_model
+        .update(&db)
+        .await
+        .expect("Failed to update incident");
+
+    let post_status = serde_json::json!({
+        "org_sector": new_sector,
+    });
+
+    // Log the edit action with snapshots showing the change
+    let audit_entry = review_audit_log::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        incident_id: Set(fixture_id),
+        reviewer_id: Set("test-edit".to_string()),
+        action: Set(ReviewAction::Edited.to_string()),
+        reviewed_at: Set(chrono::Utc::now().into()),
+        justification: Set(Some("Updated sector classification".to_string())),
+        confidence_score: Set(None),
+        prior_status: Set(Some(prior_status.clone())),
+        post_status: Set(Some(post_status.clone())),
+    };
+
+    audit_entry
+        .insert(&db)
+        .await
+        .expect("Failed to log edit audit entry");
+
+    // Verify audit trail captured the change
+    let audit_logs = ReviewAuditLogEntity::find()
+        .filter(review_audit_log::Column::IncidentId.eq(fixture_id))
+        .filter(review_audit_log::Column::Action.eq(ReviewAction::Edited.to_string()))
+        .all(&db)
+        .await
+        .expect("Failed to query edit audit logs");
+
+    assert!(!audit_logs.is_empty(), "Edit audit entry should exist");
+    let entry = &audit_logs[0];
+
+    // Verify snapshots show the change
+    let before = entry
+        .prior_status
+        .as_ref()
+        .expect("Prior status should exist");
+    let after = entry
+        .post_status
+        .as_ref()
+        .expect("Post status should exist");
+
+    assert_ne!(
+        before["org_sector"], after["org_sector"],
+        "Snapshots should show sector change"
+    );
+}
+
+#[tokio::test]
+#[ignore] // Requires test database setup and schema with review_audit_log
+async fn test_audit_trail_reject_snapshots() {
+    let db = get_test_db().await;
+
+    let fixture_id =
+        Uuid::parse_str("99999999-9999-9999-9999-999999999999").expect("Invalid fixture UUID");
+
+    // Fetch incident before rejection
+    let incident = IncidentEntity::find_by_id(fixture_id)
+        .one(&db)
+        .await
+        .expect("Failed to query incident")
+        .expect("Fixture incident not found");
+
+    let prior_status = serde_json::json!({
+        "id": incident.id,
+        "org_name": incident.org_name,
+        "verified": incident.verified,
+    });
+
+    // Log rejection BEFORE deletion (so we capture the final state)
+    let audit_entry = review_audit_log::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        incident_id: Set(fixture_id),
+        reviewer_id: Set("test-reject".to_string()),
+        action: Set(ReviewAction::Rejected.to_string()),
+        reviewed_at: Set(chrono::Utc::now().into()),
+        justification: Set(Some("Rejecting incident".to_string())),
+        confidence_score: Set(None),
+        prior_status: Set(Some(prior_status.clone())),
+        post_status: Set(None), // post_status is None for rejection (no record after)
+    };
+
+    audit_entry
+        .insert(&db)
+        .await
+        .expect("Failed to log reject audit entry");
+
+    // Now delete the incident
+    let active_model: IncidentActiveModel = incident.clone().into();
+    active_model
+        .delete(&db)
+        .await
+        .expect("Failed to delete incident");
+
+    // Verify audit trail captured the rejection
+    let audit_logs = ReviewAuditLogEntity::find()
+        .filter(review_audit_log::Column::IncidentId.eq(fixture_id))
+        .filter(review_audit_log::Column::Action.eq(ReviewAction::Rejected.to_string()))
+        .all(&db)
+        .await
+        .expect("Failed to query reject audit logs");
+
+    assert!(!audit_logs.is_empty(), "Reject audit entry should exist");
+    let entry = &audit_logs[0];
+
+    // Verify prior status exists
+    assert!(
+        entry.prior_status.is_some(),
+        "Prior status should be captured before deletion"
+    );
+
+    // Verify post status is None (because record was deleted)
+    assert!(
+        entry.post_status.is_none(),
+        "Post status should be None for rejection"
+    );
+}
