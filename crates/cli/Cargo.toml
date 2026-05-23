@@ -28,6 +28,7 @@ sea-orm = { workspace = true }
 chrono = { workspace = true }
 dialoguer = { workspace = true }
 uuid = { workspace = true }
+rand = { workspace = true }
 
 [dev-dependencies]
 tokio-test = "0.4"

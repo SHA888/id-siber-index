@@ -83,6 +83,9 @@ async-trait = "0.1"
 metrics = "0.24"
 metrics-exporter-prometheus = "0.15"
 
+# Random sampling
+rand = "0.8"
+
 [profile.dev]
 debug = true
 opt-level = 0

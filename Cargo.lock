@@ -442,6 +442,7 @@ dependencies = [
  "crawler",
  "dialoguer",
  "dotenvy",
+ "rand 0.8.5",
  "schema",
  "sea-orm",
  "serde",
