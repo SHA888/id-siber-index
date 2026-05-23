@@ -298,3 +298,5 @@ build/
 .claude/
 .harness-mem/
 CLAUDE.md
+out/
+Plans.md
