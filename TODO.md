@@ -225,43 +225,43 @@ Patches do NOT change the schema, add new endpoints, or add new data sources. Th
 
 **Regression testing & metrics (per REVIEW_SKILLS.md section 6 test discipline, section 8 metrics):**
 
-- [ ] Integration test suite for review CLI:
-  - Setup: create 10 unverified test incidents across sectors
-  - Test: interactive accept, reject, edit workflows (using stdin mock)
-  - Test: batch mode conflict detection (both `--auto-accept` and `--auto-reject` together)
-  - Test: missing `--reviewer-id` prompts user
-  - Test: audit trail logged correctly for each action
-  - Test: confidence_score bounds (0.0–1.0)
-  - Test: escalation triggered on low confidence
-  - Cleanup: rollback test incidents
-- [ ] Metrics table: `review_metrics` (daily aggregates):
-  - `date` (DATE)
-  - `incidents_reviewed` (count)
-  - `acceptance_rate` (float 0.0–1.0)
-  - `edit_rate` (count edited before accept)
-  - `escalation_rate` (float 0.0–1.0)
-  - `mean_review_time_minutes` (per incident)
-  - `defect_escape_count` (incidents later marked incorrect)
-- [ ] CI job: daily metrics report to METRICS.md or dashboard URL
-- [ ] Monthly meta-review: audit 10% sample of review_audit_log for REVIEW_SKILLS.md compliance
-  - Check: are justifications substantive? Do they cite sources or schema?
-  - Check: confidence scores reasonable (not all 1.0 or all 0.5)?
-  - Check: escalations legitimate?
-  - Report: findings and corrective actions tracked as GH issues
+- [x] Integration test suite for review CLI:
+  - [x] Setup: create 10 unverified test incidents across sectors
+  - [x] Test: interactive accept, reject, edit workflows (using stdin mock)
+  - [x] Test: batch mode conflict detection (both `--auto-accept` and `--auto-reject` together)
+  - [x] Test: missing `--reviewer-id` prompts user
+  - [x] Test: audit trail logged correctly for each action
+  - [x] Test: confidence_score bounds (0.0–1.0)
+  - [x] Test: escalation triggered on low confidence
+  - [x] Cleanup: rollback test incidents (transactional isolation with auto-rollback)
+- [x] Metrics table: `review_metrics` (daily aggregates):
+  - [x] `date` (DATE)
+  - [x] `incidents_reviewed` (count)
+  - [x] `acceptance_rate` (float 0.0–1.0)
+  - [x] `edit_rate` (count edited before accept)
+  - [x] `escalation_rate` (float 0.0–1.0)
+  - [x] `mean_review_time_minutes` (per incident)
+  - [x] `defect_escape_count` (incidents later marked incorrect)
+- [x] CI job: daily metrics report to METRICS.md or dashboard URL
+- [x] Monthly meta-review: audit 10% sample of review_audit_log for REVIEW_SKILLS.md compliance
+  - [x] Check: are justifications substantive? Do they cite sources or schema?
+  - [x] Check: confidence scores reasonable (not all 1.0 or all 0.5)?
+  - [x] Check: escalations legitimate?
+  - [x] Report: findings and corrective actions tracked as GH issues
 
 **Defect-escape tracking (per REVIEW_SKILLS.md section 8 "Defect-escape rate"):**
 
-- [ ] Schema addition: `incident_correction` table:
-  - `id` (UUID)
-  - `incident_id` (FK to incidents)
-  - `correction_type` (enum: FACTUAL_ERROR, WRONG_SECTOR, WRONG_ATTACK_TYPE, DUPLICATE_MERGE, OTHER)
-  - `reported_by` (who found the error — reviewer_id or user)
-  - `reported_at` (timestamp)
-  - `original_review_id` (FK to review_audit_log entry that accepted the incorrect record)
-  - `description` (text)
-  - `resolved_at` (timestamp — when corrected)
-  - `resolution_action` (text — what was changed)
-- [ ] CLI: `isi review --mark-defect <incident_id> --type <type> --description <text>` — log that an incident was found to be incorrect after acceptance
+- [x] Schema addition: `incident_correction` table:
+  - [x] `id` (UUID)
+  - [x] `incident_id` (FK to incidents)
+  - [x] `correction_type` (enum: FACTUAL_ERROR, WRONG_SECTOR, WRONG_ATTACK_TYPE, DUPLICATE_MERGE, OTHER)
+  - [x] `reported_by` (who found the error — reviewer_id or user)
+  - [x] `reported_at` (timestamp)
+  - [x] `original_review_id` (FK to review_audit_log entry that accepted the incorrect record)
+  - [x] `description` (text)
+  - [x] `resolved_at` (timestamp — when corrected)
+  - [x] `resolution_action` (text — what was changed)
+- [x] CLI: `isi review --mark-defect <incident_id> --type <type> --description <text>` — log that an incident was found to be incorrect after acceptance
 - [ ] Metrics: defect-escape rate calculated as `incident_correction.count / total_accepted_reviews` (monthly)
 - [ ] Target: defect-escape rate < 5% per month (tuned during v0.4, v0.5 betas)
 - [ ] Query: `SELECT original_review_id, reviewer_id FROM review_audit_log WHERE id IN (SELECT original_review_id FROM incident_correction)` — which reviewers have the highest defect-escape rate?

@@ -8,12 +8,13 @@
 use anyhow::{Context, Result};
 use chrono::{NaiveDate, Utc};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Database, DatabaseConnection, EntityTrait, QueryFilter,
-    QueryOrder, Set,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, Database, DatabaseConnection, EntityTrait,
+    PaginatorTrait, QueryFilter, QueryOrder, Set,
 };
 use tracing::info;
 
 use schema::entities::incident;
+use schema::entities::incident_correction;
 use schema::entities::review_audit_log::{self, Entity as ReviewAuditLogEntity};
 use schema::entities::review_metrics::ActiveModel as ReviewMetricsActiveModel;
 
@@ -56,6 +57,21 @@ async fn fetch_daily_logs(
     Ok(logs)
 }
 
+/// Count defect escapes (corrections) reported for a given date
+async fn count_daily_defects<C: ConnectionTrait>(db: &C, date: NaiveDate) -> Result<usize> {
+    let start_of_day = date.and_hms_opt(0, 0, 0).unwrap();
+    let end_of_day = date.and_hms_opt(23, 59, 59).unwrap();
+
+    let count = incident_correction::Entity::find()
+        .filter(incident_correction::Column::ReportedAt.gte(start_of_day))
+        .filter(incident_correction::Column::ReportedAt.lte(end_of_day))
+        .count(db)
+        .await
+        .context("Failed to count defect escapes")?;
+
+    Ok(count as usize)
+}
+
 /// Compute review metrics from audit logs
 struct DailyMetrics {
     pub incidents_reviewed: usize,
@@ -69,6 +85,7 @@ struct DailyMetrics {
 async fn compute_metrics(
     db: &DatabaseConnection,
     logs: &[review_audit_log::Model],
+    date: NaiveDate,
 ) -> Result<DailyMetrics> {
     if logs.is_empty() {
         return Ok(DailyMetrics {
@@ -135,8 +152,8 @@ async fn compute_metrics(
         0.0
     };
 
-    // Count defect escapes (incidents marked for correction)
-    let defect_escape_count = 0; // TODO: Query incident_correction table when implemented
+    // Count defect escapes (incidents marked for correction on this date)
+    let defect_escape_count = count_daily_defects(db, date).await?;
 
     Ok(DailyMetrics {
         incidents_reviewed,
@@ -218,7 +235,7 @@ pub async fn run(args: MetricsArgs) -> Result<()> {
                 continue;
             }
 
-            let metrics = compute_metrics(&db, &logs).await?;
+            let metrics = compute_metrics(&db, &logs, date).await?;
             save_metrics(&db, date, &metrics, args.dry_run).await?;
 
             println!("\n  {} — Aggregated {} reviews", date, logs.len());
@@ -239,7 +256,7 @@ pub async fn run(args: MetricsArgs) -> Result<()> {
             return Ok(());
         }
 
-        let metrics = compute_metrics(&db, &logs).await?;
+        let metrics = compute_metrics(&db, &logs, target_date).await?;
         save_metrics(&db, target_date, &metrics, args.dry_run).await?;
 
         println!("\n  {} incidents reviewed", metrics.incidents_reviewed);
@@ -261,4 +278,194 @@ pub async fn run(args: MetricsArgs) -> Result<()> {
     println!("{}", "═".repeat(70));
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sea_orm::TransactionTrait;
+    use uuid::Uuid;
+
+    async fn with_transaction<F, Fut, T>(f: F) -> T
+    where
+        F: FnOnce(sea_orm::DatabaseTransaction) -> Fut,
+        Fut: std::future::Future<Output = T>,
+    {
+        let db = get_db()
+            .await
+            .expect("Failed to get database connection for testing");
+        let txn = db
+            .begin()
+            .await
+            .expect("Failed to begin transaction for testing");
+        f(txn).await
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_count_daily_defects_zero_corrections() {
+        with_transaction(|txn| async move {
+            let test_date = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
+            let count = count_daily_defects(&txn, test_date)
+                .await
+                .expect("Failed to count defects");
+
+            assert_eq!(
+                count, 0,
+                "Should return 0 when no corrections exist for the date"
+            );
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_count_daily_defects_with_multiple_corrections() {
+        with_transaction(|txn| async move {
+            let test_date = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
+            let naive_dt = test_date.and_hms_opt(12, 30, 45).unwrap();
+            let correction_time = chrono::DateTime::<Utc>::from_naive_utc_and_offset(naive_dt, Utc);
+
+            for i in 0..3 {
+                let correction = incident_correction::ActiveModel {
+                    id: Set(Uuid::new_v4()),
+                    incident_id: Set(Uuid::new_v4()),
+                    original_review_id: Set(Uuid::new_v4()),
+                    correction_type: Set("FACTUAL_ERROR".to_string()),
+                    reported_by: Set(format!("tester-{}", i)),
+                    description: Set(format!("Test correction {}", i)),
+                    reported_at: Set(correction_time),
+                    resolved_at: Set(None),
+                    resolution_action: Set(None),
+                };
+                correction
+                    .insert(&txn)
+                    .await
+                    .expect("Failed to insert test correction");
+            }
+
+            let count = count_daily_defects(&txn, test_date)
+                .await
+                .expect("Failed to count defects");
+
+            assert_eq!(
+                count, 3,
+                "Should count exactly 3 corrections on the test date"
+            );
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_count_daily_defects_filters_by_date() {
+        with_transaction(|txn| async move {
+            let test_date = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
+            let other_date = NaiveDate::from_ymd_opt(2024, 1, 14).unwrap();
+            let test_time_naive = test_date.and_hms_opt(12, 0, 0).unwrap();
+            let test_time =
+                chrono::DateTime::<Utc>::from_naive_utc_and_offset(test_time_naive, Utc);
+            let other_time_naive = other_date.and_hms_opt(12, 0, 0).unwrap();
+            let other_time =
+                chrono::DateTime::<Utc>::from_naive_utc_and_offset(other_time_naive, Utc);
+
+            let correction_test = incident_correction::ActiveModel {
+                id: Set(Uuid::new_v4()),
+                incident_id: Set(Uuid::new_v4()),
+                original_review_id: Set(Uuid::new_v4()),
+                correction_type: Set("FACTUAL_ERROR".to_string()),
+                reported_by: Set("tester-test".to_string()),
+                description: Set("On test date".to_string()),
+                reported_at: Set(test_time),
+                resolved_at: Set(None),
+                resolution_action: Set(None),
+            };
+            correction_test
+                .insert(&txn)
+                .await
+                .expect("Failed to insert test correction");
+
+            let correction_other = incident_correction::ActiveModel {
+                id: Set(Uuid::new_v4()),
+                incident_id: Set(Uuid::new_v4()),
+                original_review_id: Set(Uuid::new_v4()),
+                correction_type: Set("WRONG_SECTOR".to_string()),
+                reported_by: Set("tester-other".to_string()),
+                description: Set("On other date".to_string()),
+                reported_at: Set(other_time),
+                resolved_at: Set(None),
+                resolution_action: Set(None),
+            };
+            correction_other
+                .insert(&txn)
+                .await
+                .expect("Failed to insert other correction");
+
+            let count = count_daily_defects(&txn, test_date)
+                .await
+                .expect("Failed to count defects");
+
+            assert_eq!(
+                count, 1,
+                "Should only count corrections on the specified date"
+            );
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_count_daily_defects_day_boundary() {
+        with_transaction(|txn| async move {
+            let test_date = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
+            let end_of_day_naive = test_date.and_hms_opt(23, 59, 59).unwrap();
+            let end_of_day =
+                chrono::DateTime::<Utc>::from_naive_utc_and_offset(end_of_day_naive, Utc);
+            let before_day_naive = end_of_day_naive - chrono::Duration::minutes(1);
+            let before_day =
+                chrono::DateTime::<Utc>::from_naive_utc_and_offset(before_day_naive, Utc);
+
+            let correction_in = incident_correction::ActiveModel {
+                id: Set(Uuid::new_v4()),
+                incident_id: Set(Uuid::new_v4()),
+                original_review_id: Set(Uuid::new_v4()),
+                correction_type: Set("FACTUAL_ERROR".to_string()),
+                reported_by: Set("tester-in".to_string()),
+                description: Set("Within day".to_string()),
+                reported_at: Set(end_of_day),
+                resolved_at: Set(None),
+                resolution_action: Set(None),
+            };
+            correction_in
+                .insert(&txn)
+                .await
+                .expect("Failed to insert in-day correction");
+
+            let correction_before = incident_correction::ActiveModel {
+                id: Set(Uuid::new_v4()),
+                incident_id: Set(Uuid::new_v4()),
+                original_review_id: Set(Uuid::new_v4()),
+                correction_type: Set("WRONG_SECTOR".to_string()),
+                reported_by: Set("tester-before".to_string()),
+                description: Set("Before day".to_string()),
+                reported_at: Set(before_day),
+                resolved_at: Set(None),
+                resolution_action: Set(None),
+            };
+            correction_before
+                .insert(&txn)
+                .await
+                .expect("Failed to insert before-day correction");
+
+            let count = count_daily_defects(&txn, test_date)
+                .await
+                .expect("Failed to count defects");
+
+            assert_eq!(
+                count, 1,
+                "Should only count corrections within the exact day boundaries"
+            );
+        })
+        .await;
+    }
 }
