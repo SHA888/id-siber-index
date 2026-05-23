@@ -6,6 +6,8 @@ mod m20240406_000001_create_incidents_table;
 mod m20240406_000002_add_enum_types;
 mod m20240407_000003_add_pg_trgm_extension;
 mod m20260523_000004_create_review_metrics_table;
+mod m20260523_000005_create_review_audit_log_table;
+mod m20260523_000006_create_incident_correction_table;
 
 pub struct Migrator;
 
@@ -17,6 +19,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20240406_000002_add_enum_types::Migration),
             Box::new(m20240407_000003_add_pg_trgm_extension::Migration),
             Box::new(m20260523_000004_create_review_metrics_table::Migration),
+            Box::new(m20260523_000005_create_review_audit_log_table::Migration),
+            Box::new(m20260523_000006_create_incident_correction_table::Migration),
         ]
     }
 }
