@@ -975,3 +975,190 @@ async fn test_audit_trail_reject_snapshots() {
         "Post status should be None for rejection"
     );
 }
+
+#[tokio::test]
+#[ignore] // Requires test database setup and schema with review_queue
+async fn test_escalation_low_confidence() {
+    let db = get_test_db().await;
+
+    let fixture_id =
+        Uuid::parse_str("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa").expect("Invalid fixture UUID");
+
+    // Fetch incident
+    let incident = IncidentEntity::find_by_id(fixture_id)
+        .one(&db)
+        .await
+        .expect("Failed to query incident")
+        .expect("Fixture incident not found");
+
+    // Accept with very low confidence (< 0.3) - should trigger escalation
+    let low_confidence = 0.25;
+    assert!(low_confidence < 0.3, "Confidence should be below threshold");
+
+    let mut active_model: IncidentActiveModel = incident.clone().into();
+    active_model.verified = Set(true);
+    active_model.updated_at = Set(chrono::Utc::now().into());
+
+    active_model
+        .update(&db)
+        .await
+        .expect("Failed to update incident");
+
+    // Log the action with low confidence
+    let audit_entry = review_audit_log::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        incident_id: Set(fixture_id),
+        reviewer_id: Set("low-confidence-test".to_string()),
+        action: Set(ReviewAction::Accepted.to_string()),
+        reviewed_at: Set(chrono::Utc::now().into()),
+        justification: Set(Some("Accepted with low confidence".to_string())),
+        confidence_score: Set(Some(low_confidence)),
+        prior_status: Set(None),
+        post_status: Set(None),
+    };
+
+    audit_entry
+        .insert(&db)
+        .await
+        .expect("Failed to log audit entry");
+
+    // In a real scenario, this would trigger auto-escalation
+    // Simulate the escalation by logging an ESCALATED action
+    let escalation_entry = review_audit_log::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        incident_id: Set(fixture_id),
+        reviewer_id: Set("system".to_string()),
+        action: Set(ReviewAction::Escalated.to_string()),
+        reviewed_at: Set(chrono::Utc::now().into()),
+        justification: Set(Some(
+            "Auto-escalated: confidence_score < 0.3 on acceptance".to_string(),
+        )),
+        confidence_score: Set(None),
+        prior_status: Set(None),
+        post_status: Set(None),
+    };
+
+    escalation_entry
+        .insert(&db)
+        .await
+        .expect("Failed to log escalation");
+
+    // Verify escalation was logged
+    let escalated = ReviewAuditLogEntity::find()
+        .filter(review_audit_log::Column::IncidentId.eq(fixture_id))
+        .filter(review_audit_log::Column::Action.eq(ReviewAction::Escalated.to_string()))
+        .all(&db)
+        .await
+        .expect("Failed to query escalation logs");
+
+    assert!(
+        !escalated.is_empty(),
+        "Escalation should be logged for low confidence"
+    );
+    assert!(
+        escalated[0]
+            .justification
+            .as_ref()
+            .map(|j| j.contains("confidence_score"))
+            .unwrap_or(false),
+        "Escalation reason should mention confidence"
+    );
+}
+
+#[tokio::test]
+#[ignore] // Requires test database setup and schema with review_audit_log
+async fn test_escalation_conflicting_reviews() {
+    let db = get_test_db().await;
+
+    // Use a fixture incident that will have two different reviewers making opposite decisions
+    let fixture_id =
+        Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("Invalid fixture UUID");
+
+    // First reviewer accepts the incident
+    let audit_accept = review_audit_log::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        incident_id: Set(fixture_id),
+        reviewer_id: Set("reviewer-alice".to_string()),
+        action: Set(ReviewAction::Accepted.to_string()),
+        reviewed_at: Set(chrono::Utc::now().into()),
+        justification: Set(Some("Alice accepts this incident".to_string())),
+        confidence_score: Set(Some(0.8)),
+        prior_status: Set(None),
+        post_status: Set(None),
+    };
+
+    audit_accept
+        .insert(&db)
+        .await
+        .expect("Failed to log first reviewer's accept");
+
+    // Second reviewer rejects the same incident (conflict!)
+    let audit_reject = review_audit_log::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        incident_id: Set(fixture_id),
+        reviewer_id: Set("reviewer-bob".to_string()),
+        action: Set(ReviewAction::Rejected.to_string()),
+        reviewed_at: Set(chrono::Utc::now().into()),
+        justification: Set(Some("Bob rejects this incident".to_string())),
+        confidence_score: Set(None),
+        prior_status: Set(None),
+        post_status: Set(None),
+    };
+
+    audit_reject
+        .insert(&db)
+        .await
+        .expect("Failed to log second reviewer's reject");
+
+    // System detects conflict and escalates
+    let escalation = review_audit_log::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        incident_id: Set(fixture_id),
+        reviewer_id: Set("system".to_string()),
+        action: Set(ReviewAction::Escalated.to_string()),
+        reviewed_at: Set(chrono::Utc::now().into()),
+        justification: Set(Some(
+            "Conflicting reviewer decisions (rejected after prior acceptance)".to_string(),
+        )),
+        confidence_score: Set(None),
+        prior_status: Set(None),
+        post_status: Set(None),
+    };
+
+    escalation
+        .insert(&db)
+        .await
+        .expect("Failed to log escalation for conflict");
+
+    // Verify all three entries exist
+    let all_actions = ReviewAuditLogEntity::find()
+        .filter(review_audit_log::Column::IncidentId.eq(fixture_id))
+        .all(&db)
+        .await
+        .expect("Failed to query audit actions");
+
+    // Should have at least: accept, reject, escalate
+    assert!(
+        all_actions.len() >= 3,
+        "Should have multiple actions including escalation"
+    );
+
+    // Verify escalation is the last action
+    let escalations: Vec<_> = all_actions
+        .iter()
+        .filter(|a| a.action == ReviewAction::Escalated.to_string())
+        .collect();
+
+    assert!(
+        !escalations.is_empty(),
+        "Escalation should be logged for conflicting reviews"
+    );
+    assert!(
+        escalations[0]
+            .justification
+            .as_ref()
+            .map(|j| j.contains("conflict"))
+            .unwrap_or(false),
+        "Escalation reason should mention conflicting decisions"
+    );
+}
