@@ -9,6 +9,7 @@ pub mod export;
 pub mod import;
 pub mod metrics;
 pub mod review;
+pub mod reviewer_ranking;
 pub mod search;
 pub mod serve;
 
