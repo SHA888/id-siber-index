@@ -4,6 +4,7 @@ use clap::Subcommand;
 
 pub mod crawl;
 pub mod db;
+pub mod defect;
 pub mod export;
 pub mod import;
 pub mod metrics;
