@@ -21,8 +21,8 @@ COPY README.md ./
 COPY src/ ./src/
 COPY enrichment/ ./enrichment/
 
-# Install dependencies (with retries for network resilience)
-RUN for i in 1 2 3 4 5; do uv sync --no-dev --locked && break || ([ $i -eq 5 ] && exit 1 || sleep 10); done
+# Install dependencies (with exponential backoff retries for network resilience)
+RUN for i in 1 2 3 4 5 6 7 8; do uv sync --no-dev --locked && break || ([ $i -eq 8 ] && exit 1 || sleep $((i * 15))); done
 
 # Download NLTK data
 RUN uv run python -c "import os; import nltk; nltk_data_path='/app/nltk_data'; os.makedirs(nltk_data_path, exist_ok=True); nltk.data.path.append(nltk_data_path); nltk.download('punkt', download_dir=nltk_data_path); nltk.download('stopwords', download_dir=nltk_data_path); nltk.download('wordnet', download_dir=nltk_data_path)"
