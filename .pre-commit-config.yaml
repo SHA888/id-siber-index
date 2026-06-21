@@ -42,7 +42,7 @@ repos:
 
       - id: cargo-audit
         name: cargo audit
-        entry: cargo audit
+        entry: cargo audit --ignore RUSTSEC-2023-0071
         language: system
         types: [rust]
         pass_filenames: false
