@@ -112,6 +112,4 @@ strict_equality = true
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-ra -q --strict-markers --strict-config"
-testpaths = [
-    "tests",
-]
+testpaths = ["src", "tests"]
