@@ -35,7 +35,7 @@ RUN groupadd -r id_siber && useradd -r -g id_siber id_siber
 WORKDIR /app
 
 # Copy the binary from builder stage
-COPY --from=builder /app/target/release/idsiber /usr/local/bin/idsiber
+COPY --from=builder /app/target/release/isi /usr/local/bin/isi
 COPY --from=builder /app/target/release/migrate /usr/local/bin/migrate
 
 # Copy configuration files
@@ -56,17 +56,17 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 # Default command
-CMD ["idsiber"]
+CMD ["isi"]
 
 # Development stage
 FROM builder AS development
 WORKDIR /app
 RUN cargo install cargo-watch
-CMD ["cargo", "watch", "-x", "run", "--bin", "idsiber"]
+CMD ["cargo", "watch", "-x", "run", "--bin", "isi"]
 
 # API stage (for docker-compose)
 FROM runtime AS api
-CMD ["idsiber"]
+CMD ["isi"]
 
 # Migration stage (for docker-compose)
 FROM runtime AS migrate

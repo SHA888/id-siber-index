@@ -11,7 +11,7 @@ pub mod validation;
 pub use validation::*;
 
 /// Re-export commonly used types
-#[allow(ambiguous_glob_reexports)]
+#[allow(ambiguous_glob_reexports, unused_imports)]
 pub mod prelude {
     pub use crate::entities::incident::*;
     pub use crate::entities::review_audit_log::*;
