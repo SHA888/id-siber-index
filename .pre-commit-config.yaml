@@ -41,15 +41,15 @@ repos:
         pass_filenames: false
 
       - id: cargo-audit
-        name: cargo audit
+        name: cargo audit (security advisories)
         entry: cargo audit --ignore RUSTSEC-2023-0071
         language: system
         types: [rust]
         pass_filenames: false
 
       - id: cargo-deny
-        name: cargo deny
-        entry: cargo deny check
+        name: cargo deny (advisories only)
+        entry: cargo deny check advisories
         language: system
         types: [rust]
         pass_filenames: false

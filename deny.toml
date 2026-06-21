@@ -3,9 +3,33 @@
 [advisories]
 # List of advisory IDs to ignore. Note that ignored advisories will still
 # output a note when they are encountered, unless they are also yanked.
+#
+# Note: We rely on cargo audit for RSA timing sidechannel (RUSTSEC-2023-0071)
+# since cargo deny's database doesn't match it.
 ignore = [
-    # fxhash unmaintained - transitive dep via servo/selectors, no direct usage
+    # RUSTSEC-2025-0057: fxhash unmaintained
+    # - Status: Unmaintained
+    # - Impact: Low (hash function library, no security-critical usage)
+    # - Why ignored: Transitive dep via servo/selectors → scraper. We use scraper for
+    #   web scraping only. fxhash performance characteristics don't affect security.
+    # - Reviewed: 2026-06-22
     "RUSTSEC-2025-0057",
+
+    # RUSTSEC-2026-0173: proc-macro-error2 unmaintained
+    # - Status: Unmaintained with no safe upgrade
+    # - Impact: Low (only used in proc macros, not runtime)
+    # - Why ignored: Transitive dep via sea-orm-macros. Both original proc-macro-error
+    #   and this fork are unmaintained. sea-orm uses it for derive macro generation only.
+    # - Reviewed: 2026-06-22
+    "RUSTSEC-2026-0173",
+
+    # RUSTSEC-2026-0097: Rand unsound with custom logger
+    # - Status: Unsound but requires specific misuse pattern
+    # - Impact: Low (requires custom logger using rand::rng() which we don't do)
+    # - Why ignored: Transitive dep via sqlx-postgres and quinn. The unsoundness only
+    #   manifests if custom loggers call rand::rng(). We don't have custom loggers.
+    # - Reviewed: 2026-06-22
+    "RUSTSEC-2026-0097",
 ]
 
 [licenses]
