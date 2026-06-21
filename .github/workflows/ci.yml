@@ -108,4 +108,4 @@ jobs:
     - name: Test Docker compose
       run: |
         docker compose -f docker-compose.yml config
-        docker compose -f docker-compose.override.yml.example config
+        docker compose -f docker-compose.yml -f docker-compose.override.yml.example config

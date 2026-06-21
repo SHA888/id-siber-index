@@ -51,8 +51,6 @@ services:
     ports:
       - "8081:8081"  # NLP service port
 
-# Additional development services
-services:
   # Adminer for database management
   adminer:
     image: adminer:latest
